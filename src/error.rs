@@ -18,12 +18,14 @@ pub enum AppError {
     Jwt(#[from] jsonwebtoken::errors::Error),
 
     #[error("TLS configuration error: {0}")]
+    #[allow(dead_code)]
     TlsConfig(String),
 
     #[error("HTTP client error: {0}")]
     HttpClient(#[from] reqwest::Error),
 
     #[error("PEM error: {0}")]
+    #[allow(dead_code)]
     Pem(String),
 
     #[error("Internal server error: {0}")]

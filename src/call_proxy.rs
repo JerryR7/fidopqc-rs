@@ -1,6 +1,7 @@
 use axum::{
-    extract::{Extension, Query, Json as ExtractJson},
+    extract::Extension,
     Json,
+    http::HeaderMap,
 };
 use reqwest::{Client, ClientBuilder, Identity};
 use serde::{Deserialize, Serialize};
@@ -11,12 +12,12 @@ use crate::error::{AppError, AppResult};
 
 #[derive(Debug, Deserialize)]
 pub struct DemoQuery {
-    token: Option<String>,
+    // 移除 token 字段，不再從 URL 參數獲取 JWT
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ProxyRequest {
-    token: Option<String>,
+    // 移除 token 字段，不再從請求體獲取 JWT
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -80,18 +81,20 @@ pub fn create_pqc_client() -> AppResult<Client> {
 /// 處理演示請求，通過 PQC mTLS 連接到 Quantum-Safe-Proxy
 pub async fn handler(
     Extension(client): Extension<Client>,
-    query_or_body: Option<Query<DemoQuery>>,
-    body: Option<ExtractJson<ProxyRequest>>,
+    headers: axum::http::HeaderMap,
 ) -> AppResult<Json<DemoResponse>> {
-    // 獲取 JWT 令牌（從查詢參數、請求體或使用默認值）
-    let token = match (query_or_body, body) {
-        (Some(Query(params)), _) => params.token,
-        (_, Some(ExtractJson(request))) => request.token,
-        _ => None,
-    }.unwrap_or_else(|| "demo-token".to_string());
+    // 從請求頭獲取 Authorization 頭
+    let auth_header = headers.get("Authorization")
+        .map(|h| h.to_str().unwrap_or(""))
+        .unwrap_or("")
+        .to_string();
 
-    // 不再在Gateway驗證JWT，只記錄令牌信息
-    tracing::info!("Forwarding request with token to backend");
+    // 記錄請求信息（不記錄完整令牌）
+    if auth_header.is_empty() {
+        tracing::info!("Forwarding request without Authorization header to backend");
+    } else {
+        tracing::info!("Forwarding request with Authorization header to backend");
+    }
 
     // 設置代理 URL（從環境變量獲取或使用默認值）
     let proxy_url = env::var("QUANTUM_SAFE_PROXY_URL")
@@ -100,12 +103,15 @@ pub async fn handler(
 
     tracing::info!("Sending request to Quantum-Safe-Proxy at {}", proxy_url);
 
-    // 發送請求到代理
-    let response_result = client
-        .get(&proxy_url)
-        .header("Authorization", format!("Bearer {}", token))
-        .send()
-        .await;
+    // 發送請求到代理，透明傳遞 Authorization 頭
+    let mut request_builder = client.get(&proxy_url);
+
+    // 只有當 Authorization 頭存在時才添加
+    if !auth_header.is_empty() {
+        request_builder = request_builder.header("Authorization", auth_header);
+    }
+
+    let response_result = request_builder.send().await;
 
     // 處理可能的錯誤
     let response = match response_result {

@@ -271,16 +271,31 @@
         // API 訪問功能
         document.getElementById('api-button').addEventListener('click', async () => {
             try {
-                // 如果有令牌則使用，否則不帶令牌
-                const url = currentToken ? `/demo?token=${currentToken}` : '/demo';
-                const apiResponse = await fetch(url);
+                // 準備請求選項
+                const options = {
+                    method: 'GET',
+                    headers: {}
+                };
+
+                // 如果有令牌，則添加到 Authorization 頭
+                if (currentToken) {
+                    options.headers['Authorization'] = `Bearer ${currentToken}`;
+                }
+
+                // 發送請求
+                const apiResponse = await fetch('/demo', options);
 
                 if (!apiResponse.ok) {
                     throw new Error(`API 請求失敗: ${apiResponse.status}`);
                 }
 
                 const apiData = await apiResponse.json();
-                showResult('api-result', `API 響應: ${JSON.stringify(apiData, null, 2)}`);
+
+                // 檢查是否已認證
+                const authStatus = apiData.authenticated ? '已認證' : '未認證';
+                const userInfo = apiData.user_info ? `用戶: ${apiData.user_info}` : '未登入';
+
+                showResult('api-result', `API 響應 (${authStatus}, ${userInfo}):\n${JSON.stringify(apiData, null, 2)}`);
             } catch (error) {
                 showResult('api-result', `錯誤: ${error.message}`, true);
                 console.error(error);

@@ -167,15 +167,15 @@ curl "http://localhost:3000/demo"
 成功登錄後，系統將返回 JWT 令牌，可用於訪問 API 並獲取用戶信息：
 
 ```bash
-curl "http://localhost:3000/demo?token=YOUR_JWT_TOKEN"
+curl "http://localhost:3000/demo" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 或者使用 POST 請求：
 
 ```bash
 curl "http://localhost:3000/api/proxy" \
-  -H "Content-Type: application/json" \
-  -d '{"token":"YOUR_JWT_TOKEN"}'
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 響應示例：
