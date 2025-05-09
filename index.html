@@ -89,7 +89,7 @@
         <div class="card">
             <h2>訪問後端 API</h2>
             <div>
-                <button id="api-button" disabled>訪問 API</button>
+                <button id="api-button">訪問 API</button>
             </div>
             <div id="api-result" class="result" style="display: none;"></div>
         </div>
@@ -260,7 +260,6 @@
 
                 const verifyData = await verifyResponse.json();
                 currentToken = verifyData.token;
-                document.getElementById('api-button').disabled = false;
 
                 showResult('login-result', `登錄成功! JWT 令牌: ${currentToken}`);
             } catch (error) {
@@ -271,13 +270,10 @@
 
         // API 訪問功能
         document.getElementById('api-button').addEventListener('click', async () => {
-            if (!currentToken) {
-                showResult('api-result', '請先登錄獲取令牌', true);
-                return;
-            }
-
             try {
-                const apiResponse = await fetch(`/demo?token=${currentToken}`);
+                // 如果有令牌則使用，否則不帶令牌
+                const url = currentToken ? `/demo?token=${currentToken}` : '/demo';
+                const apiResponse = await fetch(url);
 
                 if (!apiResponse.ok) {
                     throw new Error(`API 請求失敗: ${apiResponse.status}`);

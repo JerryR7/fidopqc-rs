@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::Path;
 use crate::error::{AppError, AppResult};
+use crate::jwt;
 
 #[derive(Debug, Deserialize)]
 pub struct DemoQuery {
@@ -22,6 +23,8 @@ pub struct ProxyRequest {
 pub struct DemoResponse {
     result: String,
     proxy_status: String,
+    authenticated: bool,
+    user_info: Option<String>,
 }
 
 /// 創建一個支持 PQC 的 HTTP 客戶端，用於與 Quantum-Safe-Proxy 通信
@@ -85,6 +88,15 @@ pub async fn handler(
         _ => None,
     }.unwrap_or_else(|| "demo-token".to_string());
 
+    // 驗證 JWT 令牌
+    let (claims, is_authenticated) = jwt::verify_jwt(&token)?;
+
+    if is_authenticated {
+        tracing::info!("Authenticated user: {}", claims.name);
+    } else {
+        tracing::info!("Guest access with demo token");
+    }
+
     // 設置代理 URL（從環境變量獲取或使用默認值）
     let proxy_url = env::var("QUANTUM_SAFE_PROXY_URL")
         .unwrap_or_else(|_| "https://localhost:8443".to_string());
@@ -93,20 +105,38 @@ pub async fn handler(
     tracing::info!("Sending request to Quantum-Safe-Proxy at {}", proxy_url);
 
     // 發送請求到代理
-    let response = client
+    let response_result = client
         .get(&proxy_url)
         .header("Authorization", format!("Bearer {}", token))
         .send()
-        .await?;
+        .await;
 
-    // 獲取響應狀態
-    let status = response.status();
+    // 處理可能的錯誤
+    let (status, body) = match response_result {
+        Ok(response) => {
+            // 獲取響應狀態
+            let status = response.status();
+            // 獲取響應體
+            let body = response.text().await?;
+            (format!("{}", status), body)
+        },
+        Err(e) => {
+            tracing::error!("Error connecting to proxy: {}", e);
+            ("Error".to_string(), format!("{{\"status\":\"error\",\"message\":\"Failed to connect to proxy: {}\"}}", e))
+        }
+    };
 
-    // 獲取響應體
-    let body = response.text().await?;
+    // 只有在已認證的情況下才返回用戶信息
+    let user_info = if is_authenticated {
+        Some(format!("{} ({})", claims.name, claims.sub))
+    } else {
+        None
+    };
 
     Ok(Json(DemoResponse {
         result: body,
-        proxy_status: format!("{}", status),
+        proxy_status: status,
+        authenticated: is_authenticated,
+        user_info,
     }))
 }

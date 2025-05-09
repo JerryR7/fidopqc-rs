@@ -137,14 +137,54 @@ curl -X POST http://localhost:3000/auth/login \
 
 訪問 `http://localhost:3000` 並使用返回的挑戰完成登錄過程。系統將提示您使用之前註冊的生物識別或安全密鑰進行身份驗證。
 
-#### 5. 使用 JWT 訪問代理
+#### 5. 訪問 API
 
-成功登錄後，系統將返回 JWT 令牌，可用於訪問受保護的 API：
+系統支持兩種方式訪問 API：
+
+##### 方式一：未登錄訪問（訪客模式）
+
+未登錄用戶可以直接訪問 API，但會被標記為未認證用戶：
+
+```bash
+curl "http://localhost:3000/demo"
+```
+
+響應示例：
+
+```json
+{
+  "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
+  "proxy_status": "200 OK",
+  "authenticated": false,
+  "user_info": null
+}
+```
+
+##### 方式二：使用 JWT 令牌訪問（已認證模式）
+
+成功登錄後，系統將返回 JWT 令牌，可用於訪問 API 並獲取用戶信息：
+
+```bash
+curl "http://localhost:3000/demo?token=YOUR_JWT_TOKEN"
+```
+
+或者使用 POST 請求：
 
 ```bash
 curl "http://localhost:3000/api/proxy" \
   -H "Content-Type: application/json" \
   -d '{"token":"YOUR_JWT_TOKEN"}'
+```
+
+響應示例：
+
+```json
+{
+  "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
+  "proxy_status": "200 OK",
+  "authenticated": true,
+  "user_info": "用戶名 (用戶ID)"
+}
 ```
 
 ### PQC mTLS 連接測試
@@ -161,9 +201,13 @@ curl -X POST -H "Content-Type: application/json" -d '{"token":"test"}' http://lo
 ```json
 {
   "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
-  "proxy_status": "200 OK"
+  "proxy_status": "200 OK",
+  "authenticated": true,
+  "user_info": "用戶名 (用戶ID)"
 }
 ```
+
+如果未提供有效的 JWT 令牌，響應將顯示 `"authenticated": false` 和 `"user_info": null`。
 
 ## 證書管理
 
