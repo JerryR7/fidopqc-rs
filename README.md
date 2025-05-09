@@ -16,7 +16,7 @@ PasskeyMesh Gateway 是一個結合 WebAuthn 無密碼登入和後量子密碼�
 |                   |      |                     |      |                   |
 |  PasskeyMesh      | PQC  |  Quantum-Safe-      | TLS  |  Backend          |
 |  Gateway          +----->+  Proxy              +----->+  Service          |
-|  (FIDO2 + JWT)    | mTLS |  (OpenSSL 3.5)      |      |                   |
+|  (FIDO2)          | mTLS |  (OpenSSL 3.5)      |      |  (JWT 驗證)       |
 |                   |      |                     |      |                   |
 +-------------------+      +---------------------+      +-------------------+
         ^
@@ -30,6 +30,8 @@ PasskeyMesh Gateway 是一個結合 WebAuthn 無密碼登入和後量子密碼�
 |                 |
 +-----------------+
 ```
+
+在這個架構中，Quantum-Safe-Proxy 作為後端服務的 sidecar，處理所有的 PQC TLS 連接，而JWT驗證則由後端服務負責。
 
 ## 先決條件
 
@@ -93,19 +95,19 @@ docker compose logs -f
 2. 克隆此存儲庫
 3. 安裝依賴並構建項目：
 
-```bash
-# 安裝 OpenSSL 開發庫
-sudo apt-get install pkg-config libssl-dev
+   ```bash
+   # 安裝 OpenSSL 開發庫
+   sudo apt-get install pkg-config libssl-dev
 
-# 構建項目
-cargo build
-```
+   # 構建項目
+   cargo build
+   ```
 
 4. 運行應用程序：
 
-```bash
-cargo run
-```
+   ```bash
+   cargo run
+   ```
 
 注意：本地運行時，您需要單獨設置 Quantum-Safe-Proxy 和後端服務。
 

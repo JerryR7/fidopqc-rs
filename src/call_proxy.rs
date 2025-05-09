@@ -4,10 +4,10 @@ use axum::{
 };
 use reqwest::{Client, ClientBuilder, Identity};
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::env;
 use std::path::Path;
 use crate::error::{AppError, AppResult};
-use crate::jwt;
 
 #[derive(Debug, Deserialize)]
 pub struct DemoQuery {
@@ -19,11 +19,13 @@ pub struct ProxyRequest {
     token: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DemoResponse {
     result: String,
     proxy_status: String,
+    #[serde(default)]
     authenticated: bool,
+    #[serde(default)]
     user_info: Option<String>,
 }
 
@@ -88,14 +90,8 @@ pub async fn handler(
         _ => None,
     }.unwrap_or_else(|| "demo-token".to_string());
 
-    // 驗證 JWT 令牌
-    let (claims, is_authenticated) = jwt::verify_jwt(&token)?;
-
-    if is_authenticated {
-        tracing::info!("Authenticated user: {}", claims.name);
-    } else {
-        tracing::info!("Guest access with demo token");
-    }
+    // 不再在Gateway驗證JWT，只記錄令牌信息
+    tracing::info!("Forwarding request with token to backend");
 
     // 設置代理 URL（從環境變量獲取或使用默認值）
     let proxy_url = env::var("QUANTUM_SAFE_PROXY_URL")
@@ -112,31 +108,49 @@ pub async fn handler(
         .await;
 
     // 處理可能的錯誤
-    let (status, body) = match response_result {
+    let response = match response_result {
         Ok(response) => {
             // 獲取響應狀態
             let status = response.status();
+
             // 獲取響應體
-            let body = response.text().await?;
-            (format!("{}", status), body)
+            let body_text = response.text().await?;
+
+            // 嘗試解析響應體為JSON
+            match serde_json::from_str::<serde_json::Value>(&body_text) {
+                Ok(json_value) => {
+                    // 如果後端返回的是JSON，直接使用
+                    DemoResponse {
+                        result: body_text,
+                        proxy_status: format!("{}", status),
+                        authenticated: json_value.get("authenticated")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false),
+                        user_info: json_value.get("user_info")
+                            .and_then(|v| if v.is_null() { None } else { Some(v.to_string()) }),
+                    }
+                },
+                Err(_) => {
+                    // 如果不是JSON，使用原始文本
+                    DemoResponse {
+                        result: body_text,
+                        proxy_status: format!("{}", status),
+                        authenticated: false,
+                        user_info: None,
+                    }
+                }
+            }
         },
         Err(e) => {
             tracing::error!("Error connecting to proxy: {}", e);
-            ("Error".to_string(), format!("{{\"status\":\"error\",\"message\":\"Failed to connect to proxy: {}\"}}", e))
+            DemoResponse {
+                result: format!("{{\"status\":\"error\",\"message\":\"Failed to connect to proxy: {}\"}}", e),
+                proxy_status: "Error".to_string(),
+                authenticated: false,
+                user_info: None,
+            }
         }
     };
 
-    // 只有在已認證的情況下才返回用戶信息
-    let user_info = if is_authenticated {
-        Some(format!("{} ({})", claims.name, claims.sub))
-    } else {
-        None
-    };
-
-    Ok(Json(DemoResponse {
-        result: body,
-        proxy_status: status,
-        authenticated: is_authenticated,
-        user_info,
-    }))
+    Ok(Json(response))
 }
