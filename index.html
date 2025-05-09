@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PasskeyMesh Gateway Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        input {
+            padding: 8px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+        .result {
+            background-color: #f8f9fa;
+            border-left: 4px solid #4CAF50;
+            padding: 10px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .error {
+            border-left: 4px solid #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>PasskeyMesh Gateway Demo</h1>
+    <p>這個演示展示了 WebAuthn 無密碼登入和後量子密碼學 mTLS 的整合。</p>
+
+    <div class="container">
+        <div class="card">
+            <h2>註冊</h2>
+            <div>
+                <label for="register-username">用戶名：</label>
+                <input type="text" id="register-username" placeholder="輸入用戶名">
+                <button id="register-button">註冊</button>
+            </div>
+            <div id="register-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="card">
+            <h2>登錄</h2>
+            <div>
+                <label for="login-username">用戶名：</label>
+                <input type="text" id="login-username" placeholder="輸入用戶名">
+                <button id="login-button">登錄</button>
+            </div>
+            <div id="login-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="card">
+            <h2>訪問後端 API</h2>
+            <div>
+                <button id="api-button" disabled>訪問 API</button>
+            </div>
+            <div id="api-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 全局變量
+        let currentToken = null;
+
+        // 註冊功能
+        document.getElementById('register-button').addEventListener('click', async () => {
+            const username = document.getElementById('register-username').value.trim();
+            if (!username) {
+                showResult('register-result', '請輸入用戶名', true);
+                return;
+            }
+
+            try {
+                // 步驟 1: 獲取註冊挑戰
+                const registerResponse = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username })
+                });
+
+                if (!registerResponse.ok) {
+                    throw new Error(`註冊請求失敗: ${registerResponse.status}`);
+                }
+
+                const registerData = await registerResponse.json();
+                const userId = registerData.user_id;
+
+                // 步驟 2: 準備創建憑證選項
+                const publicKeyCredentialCreationOptions = registerData.public_key.publicKey;
+
+                // 將 challenge 和 user.id 從 base64 轉換為 ArrayBuffer
+                publicKeyCredentialCreationOptions.challenge = base64ToArrayBuffer(publicKeyCredentialCreationOptions.challenge);
+                publicKeyCredentialCreationOptions.user.id = base64ToArrayBuffer(publicKeyCredentialCreationOptions.user.id);
+
+                // 將 excludeCredentials 中的 id 從 base64 轉換為 ArrayBuffer
+                if (publicKeyCredentialCreationOptions.excludeCredentials) {
+                    publicKeyCredentialCreationOptions.excludeCredentials = publicKeyCredentialCreationOptions.excludeCredentials.map(cred => {
+                        return {
+                            ...cred,
+                            id: base64ToArrayBuffer(cred.id)
+                        };
+                    });
+                }
+
+                const credential = await navigator.credentials.create({
+                    publicKey: publicKeyCredentialCreationOptions
+                });
+
+                // 步驟 4: 準備驗證數據
+                const credentialId = arrayBufferToBase64(credential.rawId);
+                const clientDataJSON = arrayBufferToBase64(credential.response.clientDataJSON);
+                const attestationObject = arrayBufferToBase64(credential.response.attestationObject);
+
+                // 步驟 5: 發送驗證請求
+                const verifyResponse = await fetch('/auth/verify-register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        credential: {
+                            id: credentialId,
+                            rawId: credentialId,
+                            type: credential.type,
+                            response: {
+                                clientDataJSON,
+                                attestationObject
+                            }
+                        }
+                    })
+                });
+
+                if (!verifyResponse.ok) {
+                    throw new Error(`驗證註冊失敗: ${verifyResponse.status}`);
+                }
+
+                const verifyData = await verifyResponse.json();
+                showResult('register-result', `註冊成功: ${JSON.stringify(verifyData, null, 2)}`);
+            } catch (error) {
+                showResult('register-result', `錯誤: ${error.message}`, true);
+                console.error(error);
+            }
+        });
+
+        // 登錄功能
+        document.getElementById('login-button').addEventListener('click', async () => {
+            const username = document.getElementById('login-username').value.trim();
+            if (!username) {
+                showResult('login-result', '請輸入用戶名', true);
+                return;
+            }
+
+            try {
+                // 步驟 1: 獲取登錄挑戰
+                const loginResponse = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username })
+                });
+
+                if (!loginResponse.ok) {
+                    throw new Error(`登錄請求失敗: ${loginResponse.status}`);
+                }
+
+                const loginData = await loginResponse.json();
+
+                // 步驟 2: 準備獲取憑證選項
+                const publicKeyCredentialRequestOptions = loginData.public_key.publicKey;
+
+                // 將 challenge 從 base64 轉換為 ArrayBuffer
+                publicKeyCredentialRequestOptions.challenge = base64ToArrayBuffer(publicKeyCredentialRequestOptions.challenge);
+
+                // 將 allowCredentials 中的 id 從 base64 轉換為 ArrayBuffer
+                if (publicKeyCredentialRequestOptions.allowCredentials) {
+                    publicKeyCredentialRequestOptions.allowCredentials = publicKeyCredentialRequestOptions.allowCredentials.map(cred => {
+                        return {
+                            ...cred,
+                            id: base64ToArrayBuffer(cred.id)
+                        };
+                    });
+                }
+
+                const assertion = await navigator.credentials.get({
+                    publicKey: publicKeyCredentialRequestOptions
+                });
+
+                // 步驟 4: 準備驗證數據
+                const credentialId = arrayBufferToBase64(assertion.rawId);
+                const clientDataJSON = arrayBufferToBase64(assertion.response.clientDataJSON);
+                const authenticatorData = arrayBufferToBase64(assertion.response.authenticatorData);
+                const signature = arrayBufferToBase64(assertion.response.signature);
+
+                // 步驟 5: 發送驗證請求
+                const verifyResponse = await fetch('/auth/verify-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        credential: {
+                            id: credentialId,
+                            rawId: credentialId,
+                            type: assertion.type,
+                            response: {
+                                clientDataJSON,
+                                authenticatorData,
+                                signature,
+                                userHandle: assertion.response.userHandle ? arrayBufferToBase64(assertion.response.userHandle) : null
+                            }
+                        }
+                    })
+                });
+
+                if (!verifyResponse.ok) {
+                    throw new Error(`驗證登錄失敗: ${verifyResponse.status}`);
+                }
+
+                const verifyData = await verifyResponse.json();
+                currentToken = verifyData.token;
+                document.getElementById('api-button').disabled = false;
+
+                showResult('login-result', `登錄成功! JWT 令牌: ${currentToken}`);
+            } catch (error) {
+                showResult('login-result', `錯誤: ${error.message}`, true);
+                console.error(error);
+            }
+        });
+
+        // API 訪問功能
+        document.getElementById('api-button').addEventListener('click', async () => {
+            if (!currentToken) {
+                showResult('api-result', '請先登錄獲取令牌', true);
+                return;
+            }
+
+            try {
+                const apiResponse = await fetch(`/demo?token=${currentToken}`);
+
+                if (!apiResponse.ok) {
+                    throw new Error(`API 請求失敗: ${apiResponse.status}`);
+                }
+
+                const apiData = await apiResponse.json();
+                showResult('api-result', `API 響應: ${JSON.stringify(apiData, null, 2)}`);
+            } catch (error) {
+                showResult('api-result', `錯誤: ${error.message}`, true);
+                console.error(error);
+            }
+        });
+
+        // 輔助函數
+        function showResult(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+
+            if (isError) {
+                element.classList.add('error');
+            } else {
+                element.classList.remove('error');
+            }
+        }
+
+        function base64ToArrayBuffer(base64) {
+            // 檢查 base64 是否為 undefined 或 null
+            if (base64 === undefined || base64 === null) {
+                console.error('Base64 字符串為 undefined 或 null');
+                return new ArrayBuffer(0);
+            }
+
+            // 確保 base64 是字符串
+            base64 = String(base64);
+
+            // 將 Base64URL 轉換為標準 Base64
+            const base64Standard = base64.replace(/-/g, '+').replace(/_/g, '/');
+            // 添加填充字符
+            const padding = base64Standard.length % 4;
+            const paddedBase64 = padding ? base64Standard + '='.repeat(4 - padding) : base64Standard;
+
+            try {
+                const binaryString = atob(paddedBase64);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes.buffer;
+            } catch (error) {
+                console.error('Base64 解碼錯誤:', error, 'Base64 字符串:', base64, '標準化後:', paddedBase64);
+                throw error;
+            }
+        }
+
+        function arrayBufferToBase64(buffer) {
+            // 檢查 buffer 是否為 undefined 或 null
+            if (buffer === undefined || buffer === null) {
+                console.error('ArrayBuffer 為 undefined 或 null');
+                return '';
+            }
+
+            try {
+                const bytes = new Uint8Array(buffer);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                // 將標準 Base64 轉換為 Base64URL
+                return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            } catch (error) {
+                console.error('ArrayBuffer 轉換錯誤:', error);
+                return '';
+            }
+        }
+    </script>
+</body>
+</html>

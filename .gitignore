@@ -1,0 +1,62 @@
+# Rust 編譯產生的文件
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock 在庫項目中應該被提交，但在二進制項目中可以忽略
+# 如果這是一個庫項目，請取消下面這行的註釋
+# Cargo.lock
+
+# IDE 和編輯器配置文件
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 環境變量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日誌文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 證書和密鑰文件
+# 完全排除證書目錄，證書將通過腳本生成
+certs/
+
+# 保留所有證書生成和管理腳本
+!scripts/
+
+# Docker 相關
+.dockerignore
+# docker-compose.override.yml
+
+# 系統文件
+.DS_Store
+Thumbs.db
+
+# 測試覆蓋率報告
+coverage/
+
+# 文檔生成的文件
+/doc/
+/docs/target/
+
+# 其他常見的忽略文件
+*.bak
+*.tmp
+*.temp
+*~
+
+# 特定於 Rust 的其他忽略
+/benches/target/
+flamegraph.svg
+perf.data
+perf.data.old

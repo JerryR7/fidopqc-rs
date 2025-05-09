@@ -1,0 +1,18 @@
+{
+  "server": {
+    "listen": "0.0.0.0:8443",
+    "target": "backend:6000",
+    "strategy": "dynamic",
+    "hybrid_cert": "/app/certs/hybrid/ml-dsa-87/server_hybrid.crt",
+    "hybrid_key": "/app/certs/hybrid/ml-dsa-87/server.key",
+    "traditional_cert": "/app/certs/traditional/rsa/server.crt",
+    "traditional_key": "/app/certs/traditional/rsa/server.key",
+    "client_ca_cert": "/app/certs/traditional/rsa/ca.crt",
+    "client_cert_mode": "optional",
+    "buffer_size": 8192,
+    "connection_timeout": 60
+  },
+  "logging": {
+    "level": "debug"
+  }
+}

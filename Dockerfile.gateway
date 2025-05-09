@@ -1,0 +1,72 @@
+FROM rust:latest AS builder
+
+WORKDIR /usr/src/app
+
+# 安裝依賴
+RUN apt-get update && \
+    apt-get install -y pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# 從 quantum-safe-proxy 映像中複製 OpenSSL 3.5
+COPY --from=quantum-safe-proxy:openssl35 /opt/openssl35 /opt/openssl35
+
+# 設置 OpenSSL 3.5 環境變量
+ENV PATH=$PATH:/opt/openssl35/bin
+ENV LD_LIBRARY_PATH=/opt/openssl35/lib64:/opt/openssl35/lib
+ENV OPENSSL_DIR=/opt/openssl35
+ENV OPENSSL_LIB_DIR=/opt/openssl35/lib64
+ENV OPENSSL_INCLUDE_DIR=/opt/openssl35/include
+
+# 複製 Cargo.toml 和 Cargo.lock
+COPY Cargo.toml Cargo.lock ./
+
+# 創建一個虛擬的 src/main.rs 以便緩存依賴
+RUN mkdir -p src && \
+    echo "fn main() {println!(\"Dummy implementation\");}" > src/main.rs
+
+# 構建依賴
+RUN cargo build --release
+
+# 刪除虛擬的 src 目錄和構建緩存
+RUN rm -rf src target/release/deps/passkeymesh_gateway*
+
+# 複製實際的源代碼
+COPY src ./src
+COPY index.html ./
+
+# 構建實際的應用程序
+RUN cargo build --release
+
+# 最終階段
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# 安裝運行時依賴
+RUN apt-get update && \
+    apt-get install -y ca-certificates libssl3 && \
+    rm -rf /var/lib/apt/lists/*
+
+# 從 quantum-safe-proxy 映像中複製 OpenSSL 3.5
+COPY --from=quantum-safe-proxy:openssl35 /opt/openssl35 /opt/openssl35
+
+# 設置 OpenSSL 3.5 環境變量
+ENV PATH=$PATH:/opt/openssl35/bin
+ENV LD_LIBRARY_PATH=/opt/openssl35/lib64:/opt/openssl35/lib
+ENV OPENSSL_DIR=/opt/openssl35
+ENV OPENSSL_LIB_DIR=/opt/openssl35/lib64
+ENV OPENSSL_INCLUDE_DIR=/opt/openssl35/include
+
+# 從構建階段複製二進制文件
+COPY --from=builder /usr/src/app/target/release/passkeymesh-gateway /app/
+COPY --from=builder /usr/src/app/index.html /app/
+
+# 設置環境變量
+ENV RUST_LOG=info,tower_http=debug,passkeymesh_gateway=trace
+ENV QUANTUM_SAFE_PROXY_URL=https://quantum-safe-proxy:8443
+
+# 暴露端口
+EXPOSE 3000
+
+# 運行應用程序
+CMD ["./passkeymesh-gateway"]
