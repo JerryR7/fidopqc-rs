@@ -59,7 +59,7 @@ pub fn create_pqc_client() -> AppResult<Client> {
     // 創建 HTTPS 客戶端
     let client = ClientBuilder::new()
         .use_native_tls() // 使用 native-tls 而不是 rustls
-        .danger_accept_invalid_certs(true) // 接受無效證書（僅用於開發環境）
+        .danger_accept_invalid_certs(false) // 接受無效證書（僅用於開發環境）
         .identity(Identity::from_pkcs8_pem(&cert_data, &key_data)
             .map_err(|e| AppError::Internal(format!("Failed to load client identity: {}", e)))?)
         .build()

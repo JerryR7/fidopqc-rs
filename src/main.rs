@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/", get(serve_index))
         .nest("/auth", webauthn::routes(Arc::clone(&webauthn)))
-        .route("/api/proxy", get(call_proxy::handler).post(call_proxy::handler))
+        .route("/api/auth/verify", get(call_proxy::handler).post(call_proxy::handler))
         .layer(Extension(http_client))
         .layer(Extension(Arc::clone(&webauthn)))
         .layer(cors)

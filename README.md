@@ -141,7 +141,7 @@ curl -X POST http://localhost:3000/auth/login \
 
 #### 5. 訪問 API
 
-系統提供統一的 API 端點 `/api/proxy`，支援 GET 和 POST 請求，並使用 HTTP 標頭傳遞 JWT 令牌：
+系統提供統一的 API 端點 `/api/auth/verify`，支援 GET 和 POST 請求，並使用 HTTP 標頭傳遞 JWT 令牌：
 
 ##### 方式一：未登錄訪問（訪客模式）
 
@@ -149,7 +149,7 @@ curl -X POST http://localhost:3000/auth/login \
 
 ```bash
 # 使用 API 端點
-curl "http://localhost:3000/api/proxy"
+curl "http://localhost:3000/api/auth/verify"
 ```
 
 響應示例：
@@ -170,7 +170,7 @@ curl "http://localhost:3000/api/proxy"
 
 ```bash
 # GET 請求
-curl "http://localhost:3000/api/proxy" \
+curl "http://localhost:3000/api/auth/verify" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -178,7 +178,7 @@ curl "http://localhost:3000/api/proxy" \
 
 ```bash
 # POST 請求
-curl -X POST "http://localhost:3000/api/proxy" \
+curl -X POST "http://localhost:3000/api/auth/verify" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{}'
@@ -202,11 +202,11 @@ curl -X POST "http://localhost:3000/api/proxy" \
 
 ```bash
 # GET 請求
-curl "http://localhost:3000/api/proxy" \
+curl "http://localhost:3000/api/auth/verify" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
 # 或 POST 請求
-curl -X POST "http://localhost:3000/api/proxy" \
+curl -X POST "http://localhost:3000/api/auth/verify" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -d '{}'

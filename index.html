@@ -283,7 +283,7 @@
                 }
 
                 // 發送請求
-                const apiResponse = await fetch('/demo', options);
+                const apiResponse = await fetch('/api/auth/verify', options);
 
                 if (!apiResponse.ok) {
                     throw new Error(`API 請求失敗: ${apiResponse.status}`);
