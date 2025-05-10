@@ -1,14 +1,20 @@
-FROM rust:latest AS builder
+FROM rust:1.86.0-slim-bookworm AS builder
 
 WORKDIR /usr/src/app
 
 # 安裝依賴
 RUN apt-get update && \
-    apt-get install -y pkg-config libssl-dev && \
+    apt-get install -y pkg-config libssl-dev perl libfindbin-libs-perl && \
     rm -rf /var/lib/apt/lists/*
 
 # 從 quantum-safe-proxy 映像中複製 OpenSSL 3.5
 COPY --from=quantum-safe-proxy:openssl35 /opt/openssl35 /opt/openssl35
+
+# 指定用 /opt/openssl35 的 OpenSSL，並關閉 vendored build
+ENV OPENSSL_DIR=/opt/openssl35 \
+    OPENSSL_LIB_DIR=/opt/openssl35/lib \
+    OPENSSL_INCLUDE_DIR=/opt/openssl35/include \
+    OPENSSL_NO_VENDOR=1
 
 # 設置 OpenSSL 3.5 環境變量
 ENV PATH=$PATH:/opt/openssl35/bin
@@ -38,7 +44,7 @@ COPY index.html ./
 RUN cargo build --release
 
 # 最終階段
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim AS final
 
 WORKDIR /app
 
