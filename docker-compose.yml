@@ -9,6 +9,11 @@ services:
       - RUST_LOG=info,tower_http=debug,passkeymesh_gateway=trace
       - QUANTUM_SAFE_PROXY_URL=https://quantum-safe-proxy:8443
       - RUST_BACKTRACE=1
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key-for-production}
+      - JWT_ISSUER=passkeymesh-gateway
+      - JWT_AUDIENCE=backend-service
+      - PQC_ALGORITHM=ML-DSA-87+X25519
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     volumes:
       - ./certs:/app/certs
     networks:
@@ -36,18 +41,18 @@ services:
       - RUST_BACKTRACE=1
       - AUTO_GENERATE_CERTS=true
     entrypoint: ["/bin/sh", "-c"]
-    command: ["quantum-safe-proxy 
-              --listen 0.0.0.0:8443 
-              --target backend:6000 
-              --strategy dynamic 
-              --hybrid-cert /app/certs/hybrid/ml-dsa-87/server_hybrid.crt 
-              --hybrid-key /app/certs/hybrid/ml-dsa-87/server.key 
-              --traditional-cert /app/certs/traditional/rsa/server.crt 
-              --traditional-key /app/certs/traditional/rsa/server.key 
-              --client-ca-cert /app/certs/client-ca-chain.pem 
-              --log-level debug 
-              --client-cert-mode require --buffer-size 8192 
-              --connection-timeout 60 
+    command: ["quantum-safe-proxy
+              --listen 0.0.0.0:8443
+              --target backend:6000
+              --strategy dynamic
+              --hybrid-cert /app/certs/hybrid/ml-dsa-87/server_hybrid.crt
+              --hybrid-key /app/certs/hybrid/ml-dsa-87/server.key
+              --traditional-cert /app/certs/traditional/rsa/server.crt
+              --traditional-key /app/certs/traditional/rsa/server.key
+              --client-ca-cert /app/certs/client-ca-chain.pem
+              --log-level debug
+              --client-cert-mode require --buffer-size 8192
+              --connection-timeout 60
               --openssl-dir /opt/openssl35"]
     networks:
       - proxy-network
@@ -62,6 +67,10 @@ services:
     container_name: backend-service
     ports:
       - "6000:6000"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key-for-production}
+      - JWT_ISSUER=passkeymesh-gateway
+      - JWT_AUDIENCE=backend-service
     networks:
       - proxy-network
     restart: unless-stopped

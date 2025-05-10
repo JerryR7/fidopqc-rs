@@ -34,21 +34,101 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let (status, error_message) = match self {
-            AppError::Authentication(msg) => (StatusCode::UNAUTHORIZED, msg),
-            AppError::WebAuthn(e) => (StatusCode::BAD_REQUEST, e.to_string()),
-            AppError::Jwt(e) => (StatusCode::UNAUTHORIZED, e.to_string()),
-            AppError::TlsConfig(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
-            AppError::HttpClient(e) => (StatusCode::BAD_GATEWAY, e.to_string()),
-            AppError::Internal(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
-            AppError::Pem(e) => (StatusCode::INTERNAL_SERVER_ERROR, e),
+        let (status, error_message, error_code) = match self {
+            AppError::Authentication(msg) => (
+                StatusCode::UNAUTHORIZED,
+                msg,
+                "AUTH_ERROR"
+            ),
+            AppError::WebAuthn(e) => {
+                tracing::error!("WebAuthn error: {}", e);
+                (
+                    StatusCode::BAD_REQUEST,
+                    e.to_string(),
+                    "WEBAUTHN_ERROR"
+                )
+            },
+            AppError::Jwt(e) => {
+                tracing::error!("JWT error: {}", e);
+                (
+                    StatusCode::UNAUTHORIZED,
+                    e.to_string(),
+                    "JWT_ERROR"
+                )
+            },
+            AppError::TlsConfig(e) => {
+                tracing::error!("TLS configuration error: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    "TLS_CONFIG_ERROR"
+                )
+            },
+            AppError::HttpClient(e) => {
+                tracing::error!("HTTP client error: {}", e);
+                (
+                    StatusCode::BAD_GATEWAY,
+                    "Failed to communicate with backend service".to_string(),
+                    "HTTP_CLIENT_ERROR"
+                )
+            },
+            AppError::Internal(e) => {
+                tracing::error!("Internal server error: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                    "INTERNAL_ERROR"
+                )
+            },
+            AppError::Pem(e) => {
+                tracing::error!("PEM error: {}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Certificate error".to_string(),
+                    "PEM_ERROR"
+                )
+            },
         };
 
+        // 添加安全標頭
+        let mut response = Response::builder()
+            .status(status)
+            .header("Content-Type", "application/json")
+            .header("X-Content-Type-Options", "nosniff")
+            .header("X-Frame-Options", "DENY")
+            .header("X-XSS-Protection", "1; mode=block");
+
+        // 如果是生產環境，添加 HSTS 標頭
+        if std::env::var("ENVIRONMENT").unwrap_or_default() == "production" {
+            response = response.header(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains"
+            );
+        }
+
+        // 構建錯誤響應體
         let body = Json(json!({
-            "error": error_message
+            "status": "error",
+            "code": error_code,
+            "message": error_message,
+            "timestamp": chrono::Utc::now().to_rfc3339()
         }));
 
-        (status, body).into_response()
+        // 構建最終響應
+        match response.body(body.into_response().into_body()) {
+            Ok(resp) => resp,
+            Err(_) => {
+                // 如果構建響應失敗，返回一個簡單的錯誤響應
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "status": "error",
+                        "code": "RESPONSE_BUILD_ERROR",
+                        "message": "Failed to build error response"
+                    }))
+                ).into_response()
+            }
+        }
     }
 }
 

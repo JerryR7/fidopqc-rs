@@ -4,7 +4,7 @@ mod error;
 mod jwt;
 
 use axum::{
-    routing::{get, post},
+    routing::get,
     Router,
     Extension,
     response::Html,
@@ -13,7 +13,7 @@ use axum::{
 use std::{sync::Arc, path::PathBuf, net::SocketAddr};
 use tokio::fs;
 use tower_http::{
-    cors::{CorsLayer, Any},
+    cors::CorsLayer,
     trace::TraceLayer,
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -46,18 +46,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 創建 PQC mTLS HTTP 客戶端
     let http_client = call_proxy::create_pqc_client()?;
 
-    // 配置 CORS
+    // 配置 CORS - 更安全的配置
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(["http://localhost:3000".parse().unwrap()])  // 只允許特定來源
+        .allow_methods(vec![
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::OPTIONS,
+        ])  // 只允許特定方法
+        .allow_headers(vec![
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::CONTENT_TYPE,
+        ])  // 只允許特定標頭
+        .allow_credentials(true);  // 允許憑證
 
     // 創建路由
     let app = Router::new()
         .route("/", get(serve_index))
         .nest("/auth", webauthn::routes(Arc::clone(&webauthn)))
-        .route("/demo", get(call_proxy::handler))
-        .route("/api/proxy", post(call_proxy::handler))
+        .route("/api/proxy", get(call_proxy::handler).post(call_proxy::handler))
         .layer(Extension(http_client))
         .layer(Extension(Arc::clone(&webauthn)))
         .layer(cors)

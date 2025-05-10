@@ -141,14 +141,15 @@ curl -X POST http://localhost:3000/auth/login \
 
 #### 5. 訪問 API
 
-系統支持兩種方式訪問 API：
+系統提供統一的 API 端點 `/api/proxy`，支援 GET 和 POST 請求，並使用 HTTP 標頭傳遞 JWT 令牌：
 
 ##### 方式一：未登錄訪問（訪客模式）
 
 未登錄用戶可以直接訪問 API，但會被標記為未認證用戶：
 
 ```bash
-curl "http://localhost:3000/demo"
+# 使用 API 端點
+curl "http://localhost:3000/api/proxy"
 ```
 
 響應示例：
@@ -158,7 +159,8 @@ curl "http://localhost:3000/demo"
   "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
   "proxy_status": "200 OK",
   "authenticated": false,
-  "user_info": null
+  "user_info": null,
+  "pqc_algorithm": "ML-DSA-87+X25519"
 }
 ```
 
@@ -167,15 +169,19 @@ curl "http://localhost:3000/demo"
 成功登錄後，系統將返回 JWT 令牌，可用於訪問 API 並獲取用戶信息：
 
 ```bash
-curl "http://localhost:3000/demo" \
+# GET 請求
+curl "http://localhost:3000/api/proxy" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 或者使用 POST 請求：
 
 ```bash
-curl "http://localhost:3000/api/proxy" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+# POST 請求
+curl -X POST "http://localhost:3000/api/proxy" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```
 
 響應示例：
@@ -185,7 +191,8 @@ curl "http://localhost:3000/api/proxy" \
   "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
   "proxy_status": "200 OK",
   "authenticated": true,
-  "user_info": "用戶名 (用戶ID)"
+  "user_info": "用戶名 (用戶ID)",
+  "pqc_algorithm": "ML-DSA-87+X25519"
 }
 ```
 
@@ -194,8 +201,15 @@ curl "http://localhost:3000/api/proxy" \
 測試與 Quantum-Safe-Proxy 的 PQC mTLS 連接：
 
 ```bash
-# 直接訪問代理 API
-curl -X POST -H "Content-Type: application/json" -d '{"token":"test"}' http://localhost:3000/api/proxy
+# GET 請求
+curl "http://localhost:3000/api/proxy" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 或 POST 請求
+curl -X POST "http://localhost:3000/api/proxy" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{}'
 ```
 
 如果一切正常，您將收到類似以下的響應：
@@ -205,11 +219,14 @@ curl -X POST -H "Content-Type: application/json" -d '{"token":"test"}' http://lo
   "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
   "proxy_status": "200 OK",
   "authenticated": true,
-  "user_info": "用戶名 (用戶ID)"
+  "user_info": "用戶名 (用戶ID)",
+  "pqc_algorithm": "ML-DSA-87+X25519"
 }
 ```
 
 如果未提供有效的 JWT 令牌，響應將顯示 `"authenticated": false` 和 `"user_info": null`。
+
+您可以在響應中看到 `pqc_algorithm` 字段，它顯示了用於 mTLS 連接的後量子密碼學算法。
 
 ## 證書管理
 
@@ -258,11 +275,44 @@ chmod +x scripts/generate_local_certs.sh
 - `server_hybrid.crt`：混合服務器證書
 - `server.key`：服務器私鑰
 
+## 環境變量配置
+
+系統支持以下環境變量：
+
+| 環境變量 | 說明 | 默認值 |
+|---------|------|-------|
+| `JWT_SECRET` | JWT 簽名密鑰 | `your-jwt-secret-key-for-production` |
+| `JWT_ISSUER` | JWT 發行者 | `passkeymesh-gateway` |
+| `JWT_AUDIENCE` | JWT 受眾 | `backend-service` |
+| `PQC_ALGORITHM` | 使用的後量子密碼學算法 | `ML-DSA-87+X25519` |
+| `ENVIRONMENT` | 運行環境 | `development` |
+| `RUST_LOG` | 日誌級別 | `info,tower_http=debug,passkeymesh_gateway=trace` |
+| `QUANTUM_SAFE_PROXY_URL` | 量子安全代理的 URL | `https://quantum-safe-proxy:8443` |
+
+您可以通過以下方式設置環境變量：
+
+1. 在 `.env` 文件中設置（推薦用於開發環境）：
+
+```bash
+# .env 文件示例
+JWT_SECRET=your-secure-jwt-secret
+ENVIRONMENT=production
+```
+
+2. 在 `docker-compose.yml` 文件中設置（已預配置）
+
+3. 在命令行中設置（適用於臨時測試）：
+
+```bash
+JWT_SECRET=your-secure-jwt-secret docker compose up
+```
+
 ## 安全注意事項
 
 - 此演示應用使用內存存儲，在生產環境中應使用數據庫
-- JWT 密鑰應從環境變量或安全存儲中獲取
-- 在生產環境中，應使用 HTTPS
+- JWT 密鑰應使用強隨機值，並通過環境變量或安全存儲提供
+- 在生產環境中，應設置 `ENVIRONMENT=production` 以啟用額外的安全標頭
+- 所有 API 端點都應使用 HTTPS
 - PQC 算法仍在標準化過程中，應定期更新以使用最新的安全算法
 
 ## 許可證

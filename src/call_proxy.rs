@@ -1,7 +1,6 @@
 use axum::{
     extract::Extension,
     Json,
-    http::HeaderMap,
 };
 use reqwest::{Client, ClientBuilder, Identity};
 use serde::{Deserialize, Serialize};
@@ -10,24 +9,17 @@ use std::env;
 use std::path::Path;
 use crate::error::{AppError, AppResult};
 
-#[derive(Debug, Deserialize)]
-pub struct DemoQuery {
-    // 移除 token 字段，不再從 URL 參數獲取 JWT
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ProxyRequest {
-    // 移除 token 字段，不再從請求體獲取 JWT
-}
-
+// 統一的 API 響應結構
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DemoResponse {
+pub struct ApiResponse {
     result: String,
     proxy_status: String,
     #[serde(default)]
     authenticated: bool,
     #[serde(default)]
     user_info: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pqc_algorithm: Option<String>,
 }
 
 /// 創建一個支持 PQC 的 HTTP 客戶端，用於與 Quantum-Safe-Proxy 通信
@@ -78,15 +70,15 @@ pub fn create_pqc_client() -> AppResult<Client> {
 
 
 
-/// 處理演示請求，通過 PQC mTLS 連接到 Quantum-Safe-Proxy
+/// 處理 API 請求，通過 PQC mTLS 連接到 Quantum-Safe-Proxy
 pub async fn handler(
     Extension(client): Extension<Client>,
     headers: axum::http::HeaderMap,
-) -> AppResult<Json<DemoResponse>> {
+) -> AppResult<Json<ApiResponse>> {
     // 從請求頭獲取 Authorization 頭
     let auth_header = headers.get("Authorization")
-        .map(|h| h.to_str().unwrap_or(""))
-        .unwrap_or("")
+        .map(|h| h.to_str().unwrap_or_default())
+        .unwrap_or_default()
         .to_string();
 
     // 記錄請求信息（不記錄完整令牌）
@@ -103,6 +95,14 @@ pub async fn handler(
 
     tracing::info!("Sending request to Quantum-Safe-Proxy at {}", proxy_url);
 
+    // 獲取 PQC 算法信息（如果可用）
+    let pqc_algorithm = env::var("PQC_ALGORITHM").ok();
+    if let Some(ref algo) = pqc_algorithm {
+        tracing::info!("Using PQC algorithm: {}", algo);
+    } else {
+        tracing::info!("PQC algorithm information not available");
+    }
+
     // 發送請求到代理，透明傳遞 Authorization 頭
     let mut request_builder = client.get(&proxy_url);
 
@@ -110,6 +110,12 @@ pub async fn handler(
     if !auth_header.is_empty() {
         request_builder = request_builder.header("Authorization", auth_header);
     }
+
+    // 添加安全標頭
+    request_builder = request_builder
+        .header("X-Content-Type-Options", "nosniff")
+        .header("X-Frame-Options", "DENY")
+        .header("X-XSS-Protection", "1; mode=block");
 
     let response_result = request_builder.send().await;
 
@@ -120,13 +126,16 @@ pub async fn handler(
             let status = response.status();
 
             // 獲取響應體
-            let body_text = response.text().await?;
+            let body_text = response.text().await.map_err(|e| {
+                tracing::error!("Failed to read response body: {}", e);
+                AppError::HttpClient(e)
+            })?;
 
             // 嘗試解析響應體為JSON
             match serde_json::from_str::<serde_json::Value>(&body_text) {
                 Ok(json_value) => {
                     // 如果後端返回的是JSON，直接使用
-                    DemoResponse {
+                    ApiResponse {
                         result: body_text,
                         proxy_status: format!("{}", status),
                         authenticated: json_value.get("authenticated")
@@ -134,26 +143,29 @@ pub async fn handler(
                             .unwrap_or(false),
                         user_info: json_value.get("user_info")
                             .and_then(|v| if v.is_null() { None } else { Some(v.to_string()) }),
+                        pqc_algorithm,
                     }
                 },
                 Err(_) => {
                     // 如果不是JSON，使用原始文本
-                    DemoResponse {
+                    ApiResponse {
                         result: body_text,
                         proxy_status: format!("{}", status),
                         authenticated: false,
                         user_info: None,
+                        pqc_algorithm,
                     }
                 }
             }
         },
         Err(e) => {
             tracing::error!("Error connecting to proxy: {}", e);
-            DemoResponse {
+            ApiResponse {
                 result: format!("{{\"status\":\"error\",\"message\":\"Failed to connect to proxy: {}\"}}", e),
                 proxy_status: "Error".to_string(),
                 authenticated: false,
                 user_info: None,
+                pqc_algorithm,
             }
         }
     };
