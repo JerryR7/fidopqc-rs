@@ -15,7 +15,7 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-development}
       # mTLS 憑證配置
       - CLIENT_CERT_PATH=/app/certs/hybrid-client/client.crt
-      - CLIENT_KEY_PATH=/app/certs/hybrid-client/client_pkcs8.key
+      - CLIENT_KEY_PATH=/app/certs/hybrid-client/client.key
       - CA_CERT_PATH=/app/certs/hybrid-ca/ca.crt
     volumes:
       - ./certs:/app/certs
@@ -50,8 +50,8 @@ services:
               --strategy dynamic
               --hybrid-cert /app/certs/hybrid-server/server.crt
               --hybrid-key /app/certs/hybrid-server/server.key
-              --traditional-cert /app/certs/traditional/rsa/server.crt
-              --traditional-key /app/certs/traditional/rsa/server.key
+              --traditional-cert /app/certs/hybrid-server/server.crt
+              --traditional-key /app/certs/hybrid-server/server.key
               --client-ca-cert /app/certs/hybrid-ca/ca.crt
               --log-level debug
               --client-cert-mode optional
