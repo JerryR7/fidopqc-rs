@@ -3,23 +3,35 @@
 **/*.rs.bk
 *.pdb
 
-# Cargo.lock 在庫項目中應該被提交，但在二進制項目中可以忽略
-# 如果這是一個庫項目，請取消下面這行的註釋
-# Cargo.lock
-
 # IDE 和編輯器配置文件
 .idea/
 .vscode/
-*.swp
-*.swo
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.metals/
+.bloop/
+.bsp/
+.scala_dependencies
+.worksheet
+.ensime
+.ensime_cache/
 .DS_Store
 
 # 環境變量文件
 .env
 .env.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
+.env.production
 .env.production.local
+.envrc
+.direnv/
 
 # 日誌文件
 *.log
@@ -30,6 +42,15 @@ yarn-error.log*
 # 證書和密鑰文件
 # 完全排除證書目錄，證書將通過腳本生成
 certs/
+certs_hybrid/
+*.crt
+*.key
+*.pem
+*.der
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # 保留所有證書生成和管理腳本
 !scripts/
@@ -41,22 +62,44 @@ certs/
 # 系統文件
 .DS_Store
 Thumbs.db
+desktop.ini
+*.lnk
 
 # 測試覆蓋率報告
 coverage/
+lcov.info
+*.lcov
+.nyc_output/
 
 # 文檔生成的文件
 /doc/
 /docs/target/
+/book/
+/mdbook/
+/target/doc/
 
 # 其他常見的忽略文件
 *.bak
 *.tmp
 *.temp
 *~
+*.swp
+*.swo
 
 # 特定於 Rust 的其他忽略
 /benches/target/
 flamegraph.svg
 perf.data
 perf.data.old
+callgrind.out.*
+*.profraw
+*.gcda
+*.gcno
+
+# TLS 會話緩存文件
+tls_session.cache
+*.cache
+
+# 臨時文件
+.tmp*
+.temp*
