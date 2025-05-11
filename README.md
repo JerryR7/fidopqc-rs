@@ -337,6 +337,11 @@ Contributions are welcome! Please:
 4. Push to your branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+## Author
+
+- **Jerry** - [GitHub](https://github.com/JerryR7)
+- **Email**: vp780412@gmail.com
+
 ## License
 
-MIT
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.

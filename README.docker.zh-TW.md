@@ -116,3 +116,7 @@ docker compose logs -f backend-service
 - 這是一個演示環境，不建議在生產環境中直接使用
 - 證書是自簽名的，僅用於演示目的
 - JWT 密鑰是預設的，在生產環境中應使用強隨機值
+
+## 授權條款
+
+本專案採用 MIT 授權。詳情請參閱 [LICENSE](./LICENSE) 檔案。

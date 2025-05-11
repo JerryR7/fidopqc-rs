@@ -1,0 +1,8 @@
+# These owners will be the default owners for everything in the repo.
+# They will be requested for review when someone opens a pull request.
+* @JerryR7
+
+# Specific ownership for certain files or directories
+/src/ @JerryR7
+/scripts/ @JerryR7
+/docker/ @JerryR7

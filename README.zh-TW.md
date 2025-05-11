@@ -357,4 +357,4 @@ fidopqc-rs <-- TLS --> Legacy Services
 
 ## 許可證
 
-MIT
+本專案採用 MIT 授權。詳情請參閱 [LICENSE](./LICENSE) 檔案。

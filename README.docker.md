@@ -114,3 +114,7 @@ docker compose logs -f backend-service
 - This is a demo environment; do not use in production.
 - Certificates are self-signed and for demo purposes only.
 - Use strong random JWT secrets in production.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
