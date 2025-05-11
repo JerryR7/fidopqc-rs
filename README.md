@@ -1,17 +1,19 @@
 # fidopqc-rs
 
-一個使用 Rust 開發的服務，結合了 FIDO2 (WebAuthn) 無密碼認證與後量子密碼學 (PQC) mTLS 連接功能。它提供了一個安全的方式來驗證用戶身份，並通過量子安全的 TLS 連接與後端服務通信。
+[English](README.md) | [繁體中文](README.zh-TW.md)
 
-## 專案概述
+A Rust-based service that integrates FIDO2 (WebAuthn) passwordless authentication with Post-Quantum Cryptography (PQC) mTLS connections. It provides a secure way to verify user identities and communicate with backend services over quantum-safe TLS.
 
-fidopqc-rs 是一個輕量級、高效能的 Rust 應用程序，專注於兩個關鍵安全技術的整合：
+## Project Overview
 
-1. **FIDO2/WebAuthn 無密碼認證**：使用生物識別（如指紋）或安全密鑰進行身份驗證，消除密碼相關的風險
-2. **後量子密碼學 (PQC) mTLS**：使用抵抗量子計算攻擊的密碼學算法進行安全通信
+**fidopqc-rs** is a lightweight, high-performance Rust application focused on integrating two cutting-edge security technologies:
 
-這個專案旨在展示如何在現代 Web 應用中實現這兩種先進的安全技術，並提供一個可擴展的基礎，可以整合到各種後端系統中。
+1. **FIDO2/WebAuthn Passwordless Authentication**: Authenticate users with biometrics (e.g., fingerprint) or security keys, eliminating password-related risks.
+2. **Post-Quantum Cryptography (PQC) mTLS**: Secure communications using cryptographic algorithms resistant to quantum attacks.
 
-## 系統架構
+This project demonstrates how to implement these advanced security technologies in modern web applications and provides a scalable foundation for integration with various backend systems.
+
+## System Architecture
 
 ```
 +-------------------+              +-------------------+
@@ -32,89 +34,83 @@ fidopqc-rs 是一個輕量級、高效能的 Rust 應用程序，專注於兩個
 +-----------------+
 ```
 
-## 核心功能
+## Key Features
 
-- **WebAuthn 無密碼登入**：完整實現 WebAuthn 標準的註冊和登錄流程
-- **JWT 令牌生成與驗證**：成功身份驗證後生成 JWT 令牌，用於後續請求的授權
-- **後量子密碼學 mTLS**：使用 OpenSSL 3.5 實現 PQC mTLS 連接，保護通信免受量子計算攻擊
-- **TLS 握手信息展示**：詳細顯示 PQC TLS 握手的信息，包括使用的算法和密碼套件
-- **統一 API 端點**：提供簡潔的 API 端點，用於驗證用戶身份和訪問後端服務
+- **WebAuthn Passwordless Login**: Full implementation of WebAuthn registration and authentication flows.
+- **JWT Token Generation & Verification**: Issue JWT tokens after successful authentication for subsequent API authorization.
+- **Post-Quantum mTLS**: Uses OpenSSL 3.5 to establish PQC mTLS connections, protecting communications from quantum attacks.
+- **TLS Handshake Details**: Displays detailed PQC TLS handshake information, including algorithms and cipher suites.
+- **Unified API Endpoints**: Simple API endpoints for user authentication and backend service access.
 
-## 技術特點
+## Technology Highlights
 
-- **Rust 語言**：使用 Rust 的所有權模型和類型系統確保內存安全和線程安全
-- **Axum 框架**：基於 Tokio 的高效能 Web 框架，提供異步處理能力
-- **OpenSSL 3.5**：使用最新的 OpenSSL 3.5 版本，原生支持後量子密碼學算法
-- **X25519MLKEM768**：使用混合密鑰交換算法，結合傳統橢圓曲線密碼學和後量子密碼學
-- **ML-DSA-87**：使用後量子數字簽名算法生成混合證書
-- **WebAuthn-rs**：使用 Rust 實現的 WebAuthn 庫，支持所有主流瀏覽器和平台
-- **JWT 認證**：使用 JSON Web Token 進行安全的用戶會話管理
+- **Rust Language**: Ensures memory and thread safety via Rust's ownership and type system.
+- **Axum Framework**: High-performance async web framework built on Tokio.
+- **OpenSSL 3.5**: Leverages the latest OpenSSL with native PQC algorithm support.
+- **X25519MLKEM768**: Hybrid key exchange combining classical and post-quantum cryptography.
+- **ML-DSA-87**: Post-quantum digital signature algorithm for hybrid certificates.
+- **WebAuthn-rs**: Rust implementation of WebAuthn, supporting all major browsers and platforms.
+- **JWT Authentication**: Secure user session management with JSON Web Tokens.
 
-## 先決條件
+## Prerequisites
 
-- Rust 工具鏈（版本 >= 1.86.0）
-- OpenSSL 3.5（支援後量子密碼學）
-- 支持 WebAuthn 的瀏覽器（Chrome / Firefox / Safari）
+- Rust toolchain (>= 1.86.0)
+- OpenSSL 3.5 (with PQC support)
+- WebAuthn-compatible browser (Chrome / Firefox / Safari)
 
-## 安裝與運行
+## Installation & Usage
 
-### 1. 克隆專案
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/yourusername/fidopqc-rs.git
 cd fidopqc-rs
 ```
 
-### 2. 安裝依賴
+### 2. Install Dependencies
 
 ```bash
-# 在 Ubuntu/Debian 上安裝 OpenSSL 開發庫
+# On Ubuntu/Debian
 sudo apt-get install pkg-config libssl-dev
 
-# 或在 macOS 上
+# On macOS
 brew install openssl@3.5
 ```
 
-### 3. 生成 PQC 證書
+### 3. Generate PQC Certificates
 
 ```bash
-# 確保腳本有執行權限
 chmod +x scripts/generate_certs.sh
-
-# 執行腳本生成證書
 ./scripts/generate_certs.sh
 ```
 
-### 4. 設置環境變量
+### 4. Set Environment Variables
 
-創建 `.env` 文件或設置環境變量：
+Create a `.env` file or export variables:
 
 ```bash
-# 必要的環境變量
+# Required
 JWT_SECRET=your-secure-jwt-secret
 PORT=3001
 
-# 可選的環境變量
+# Optional
 RUST_LOG=info,tower_http=debug,passkeymesh_gateway=trace
 ```
 
-### 5. 構建和運行
+### 5. Build and Run
 
 ```bash
-# 構建項目
 cargo build
-
-# 運行服務
 cargo run
 ```
 
-服務將在 http://localhost:3001 上啟動。
+The service will be available at http://localhost:3001.
 
-## 詳細使用方法
+## Usage Guide
 
-### WebAuthn 註冊流程
+### WebAuthn Registration
 
-1. **發送註冊請求**：
+1. **Send Registration Request**:
 
 ```bash
 curl -X POST http://localhost:3001/auth/register \
@@ -122,9 +118,9 @@ curl -X POST http://localhost:3001/auth/register \
   -d '{"username": "testuser"}'
 ```
 
-2. **獲取註冊挑戰**：
+2. **Receive Registration Challenge**:
 
-服務將返回一個包含註冊挑戰的 JSON 響應：
+The service returns a JSON response with a registration challenge:
 
 ```json
 {
@@ -134,13 +130,13 @@ curl -X POST http://localhost:3001/auth/register \
 }
 ```
 
-3. **完成註冊**：
+3. **Complete Registration**:
 
-在瀏覽器中訪問 http://localhost:3001，使用返回的挑戰完成註冊過程。系統將提示您使用生物識別（如指紋）或安全密鑰來創建 FIDO2 憑證。
+Visit http://localhost:3001 in your browser and complete registration using biometrics or a security key.
 
-### WebAuthn 登錄流程
+### WebAuthn Login
 
-1. **發送登錄請求**：
+1. **Send Login Request**:
 
 ```bash
 curl -X POST http://localhost:3001/auth/login \
@@ -148,9 +144,7 @@ curl -X POST http://localhost:3001/auth/login \
   -d '{"username": "testuser"}'
 ```
 
-2. **獲取登錄挑戰**：
-
-服務將返回一個包含登錄挑戰的 JSON 響應：
+2. **Receive Login Challenge**:
 
 ```json
 {
@@ -160,13 +154,11 @@ curl -X POST http://localhost:3001/auth/login \
 }
 ```
 
-3. **完成登錄**：
+3. **Complete Login**:
 
-在瀏覽器中訪問 http://localhost:3001，使用返回的挑戰完成登錄過程。系統將提示您使用之前註冊的生物識別或安全密鑰進行身份驗證。
+Authenticate in the browser using your registered credential.
 
-4. **獲取 JWT 令牌**：
-
-成功登錄後，系統將返回一個 JWT 令牌：
+4. **Receive JWT Token**:
 
 ```json
 {
@@ -176,16 +168,16 @@ curl -X POST http://localhost:3001/auth/login \
 }
 ```
 
-### 使用 JWT 令牌訪問 API
+### Access API with JWT
 
-使用獲取的 JWT 令牌訪問 API 端點：
+Use the JWT token to access protected API endpoints:
 
 ```bash
 curl http://localhost:3001/api/auth/verify \
   -H "Authorization: Bearer your.jwt.token"
 ```
 
-響應示例：
+Sample response:
 
 ```json
 {
@@ -197,162 +189,154 @@ curl http://localhost:3001/api/auth/verify \
 }
 ```
 
-## 詳細項目結構
+## Project Structure
 
 ```
 fidopqc-rs/
-├── Cargo.toml                # Rust 項目配置
-├── Cargo.lock                # 依賴鎖定文件
-├── src/                      # 源代碼目錄
-│   ├── main.rs               # 程序入口點
-│   ├── webauthn.rs           # WebAuthn 註冊和登錄邏輯
-│   ├── call_proxy.rs         # PQC mTLS 連接邏輯
-│   ├── jwt.rs                # JWT 令牌生成和驗證
-│   └── error.rs              # 錯誤處理
-├── scripts/                  # 腳本目錄
-│   ├── generate_certs.sh     # 生成 PQC 證書的腳本
-│   └── clean_certs.sh        # 清理證書的腳本
-├── certs/                    # 證書目錄 (由腳本生成)
-│   ├── hybrid-ca/            # CA 證書目錄
-│   ├── hybrid-server/        # 服務器證書目錄
-│   └── hybrid-client/        # 客戶端證書目錄
-├── index.html                # 前端演示頁面
-├── .env                      # 環境變量配置
-└── .env.example              # 環境變量示例
+├── Cargo.toml                # Rust project config
+├── Cargo.lock                # Dependency lock file
+├── src/                      # Source code
+│   ├── main.rs               # Entry point
+│   ├── webauthn.rs           # WebAuthn logic
+│   ├── call_proxy.rs         # PQC mTLS logic
+│   ├── jwt.rs                # JWT logic
+│   └── error.rs              # Error handling
+├── scripts/                  # Scripts
+│   ├── generate_certs.sh     # PQC cert generation
+│   └── clean_certs.sh        # Cert cleanup
+├── certs/                    # Certificates (generated)
+│   ├── hybrid-ca/            # CA certs
+│   ├── hybrid-server/        # Server certs
+│   └── hybrid-client/        # Client certs
+├── index.html                # Demo frontend
+├── .env                      # Env config
+└── .env.example              # Env example
 ```
 
-## 核心模塊詳細說明
+## Module Overview
 
 ### main.rs
 
-程序的入口點，負責：
-- 設置 Axum 路由和中間件
-- 配置 CORS 和日誌
-- 初始化 WebAuthn 實例
-- 創建 PQC mTLS 客戶端
-- 啟動 HTTP 服務器
+- Sets up Axum routes and middleware
+- Configures CORS and logging
+- Initializes WebAuthn instance
+- Creates PQC mTLS client
+- Starts HTTP server
 
 ### webauthn.rs
 
-實現 WebAuthn 註冊和登錄功能：
-- 創建註冊和登錄挑戰
-- 驗證註冊和登錄響應
-- 管理用戶憑證
-- 生成 JWT 令牌
+- Handles WebAuthn registration and login
+- Manages user credentials
+- Issues JWT tokens
 
 ### call_proxy.rs
 
-實現 PQC mTLS 連接和 TLS 握手信息獲取：
-- 使用 OpenSSL 3.5 建立 PQC mTLS 連接
-- 獲取 TLS 握手信息
-- 發送 HTTP 請求到後端服務
-- 解析 HTTP 響應
+- Establishes PQC mTLS connections using OpenSSL 3.5
+- Retrieves TLS handshake info
+- Sends HTTP requests to backend
+- Parses responses
 
 ### jwt.rs
 
-處理 JWT 令牌的生成和驗證：
-- 生成包含用戶信息的 JWT 令牌
-- 驗證 JWT 令牌的有效性
-- 從 JWT 令牌中提取用戶信息
+- Generates and verifies JWT tokens
+- Extracts user info from JWT
 
 ### error.rs
 
-定義應用程序錯誤類型和處理邏輯：
-- 定義各種錯誤類型
-- 實現錯誤轉換
-- 提供友好的錯誤消息
+- Defines error types and conversions
+- Provides user-friendly error messages
 
-## PQC mTLS 實現詳細說明
+## PQC mTLS Implementation
 
-fidopqc-rs 使用 OpenSSL 3.5 實現後量子密碼學 mTLS 連接，主要特點：
+fidopqc-rs uses OpenSSL 3.5 for PQC mTLS connections:
 
-### 混合密鑰交換算法
+### Hybrid Key Exchange
 
-使用 X25519MLKEM768 混合密鑰交換算法，結合：
-- **X25519**：傳統橢圓曲線密碼學，提供當前的安全性
-- **MLKEM768**：後量子密碼學算法，提供抵抗量子計算攻擊的安全性
+Uses **X25519MLKEM768** for hybrid key exchange:
+- **X25519**: Classical elliptic curve cryptography
+- **MLKEM768**: Post-quantum algorithm
 
-這種混合方法確保即使其中一種算法被破解，整體安全性仍然得到保障。
+This hybrid approach ensures security even if one algorithm is compromised.
 
-### PQC 證書
+### PQC Certificates
 
-使用 ML-DSA-87 算法生成的混合證書：
-- **CA 證書**：用於簽署服務器和客戶端證書
-- **服務器證書**：用於服務器身份驗證
-- **客戶端證書**：用於客戶端身份驗證
+Uses **ML-DSA-87** for hybrid certificates:
+- **CA Certificate**: Signs server and client certs
+- **Server Certificate**: For server authentication
+- **Client Certificate**: For client authentication
 
-### TLS 1.3 協議
+### TLS 1.3
 
-使用最新的 TLS 1.3 協議，提供：
-- 更快的握手速度
-- 更好的安全性
-- 更少的往返次數
-- 更好的隱私保護
+Leverages TLS 1.3 for:
+- Faster handshakes
+- Improved security
+- Fewer round-trips
+- Better privacy
 
-## 環境變量詳細配置
+## Environment Variables
 
-| 環境變量 | 說明 | 默認值 | 必須? |
-|---------|------|-------|------|
-| `JWT_SECRET` | JWT 簽名密鑰 | 無 | 是 |
-| `JWT_ISSUER` | JWT 發行者 | `passkeymesh-gateway` | 否 |
-| `JWT_AUDIENCE` | JWT 受眾 | `backend-service` | 否 |
-| `PORT` | 服務器監聽端口 | `3001` | 否 |
-| `ENVIRONMENT` | 運行環境 | `development` | 否 |
-| `RUST_LOG` | 日誌級別 | `info` | 否 |
-| `CLIENT_CERT_PATH` | 客戶端憑證路徑 | `certs/hybrid-client/client.crt` | 否 |
-| `CLIENT_KEY_PATH` | 客戶端私鑰路徑 | `certs/hybrid-client/client_pkcs8.key` | 否 |
-| `CA_CERT_PATH` | CA 憑證路徑 | `certs/hybrid-ca/ca.crt` | 否 |
-| `OPENSSL_PATH` | OpenSSL 3.5 路徑 | 自動檢測 | 否 |
-| `QUANTUM_SAFE_PROXY_URL` | 量子安全代理的 URL | `https://localhost:8443` | 否 |
+| Variable                | Description                  | Default                                  | Required? |
+|-------------------------|------------------------------|------------------------------------------|-----------|
+| `JWT_SECRET`            | JWT signing key              | None                                     | Yes       |
+| `JWT_ISSUER`            | JWT issuer                   | `passkeymesh-gateway`                    | No        |
+| `JWT_AUDIENCE`          | JWT audience                 | `backend-service`                        | No        |
+| `PORT`                  | Server port                  | `3001`                                   | No        |
+| `ENVIRONMENT`           | Environment                  | `development`                            | No        |
+| `RUST_LOG`              | Log level                    | `info`                                   | No        |
+| `CLIENT_CERT_PATH`      | Client cert path             | `certs/hybrid-client/client.crt`         | No        |
+| `CLIENT_KEY_PATH`       | Client key path              | `certs/hybrid-client/client_pkcs8.key`   | No        |
+| `CA_CERT_PATH`          | CA cert path                 | `certs/hybrid-ca/ca.crt`                 | No        |
+| `OPENSSL_PATH`          | OpenSSL 3.5 path             | Auto-detect                              | No        |
+| `QUANTUM_SAFE_PROXY_URL`| Quantum-safe proxy URL       | `https://localhost:8443`                 | No        |
 
-## 安全最佳實踐
+## Security Best Practices
 
-- **JWT 密鑰**：使用強隨機值，並通過環境變量或安全存儲提供
-- **證書管理**：定期更新證書，使用安全的密鑰長度
-- **數據存儲**：在生產環境中使用數據庫而非內存存儲
-- **日誌處理**：不要記錄敏感信息，如 JWT 令牌或密碼
-- **錯誤處理**：不要向客戶端暴露詳細的錯誤信息
-- **定期更新**：PQC 算法仍在標準化過程中，應定期更新以使用最新的安全算法
+- Use strong, random JWT secrets and store them securely.
+- Regularly update certificates and use secure key lengths.
+- Use a database for production data storage (not in-memory).
+- Avoid logging sensitive data (e.g., JWTs, passwords).
+- Do not expose detailed error messages to clients.
+- Stay updated with PQC standards and algorithms.
 
-## 擴展與整合
+## Integration & Extension
 
-fidopqc-rs 設計為可擴展的，可以與各種後端系統整合：
+**fidopqc-rs** is designed for extensibility and integration:
 
-### 直接連接
+### Direct PQC Backend
 
-如果後端服務支援 PQC TLS，可以直接連接：
+If your backend supports PQC TLS:
 
 ```
 fidopqc-rs <-- PQC mTLS --> PQC-enabled Backend
 ```
 
-### 通過代理連接
+### Via Proxy
 
-如果後端服務不支援 PQC TLS，可以通過 Quantum-Safe-Proxy 連接：
+If your backend does not support PQC TLS:
 
 ```
 fidopqc-rs <-- PQC mTLS --> Quantum-Safe-Proxy <-- TLS --> Legacy Backend
 ```
 
-### 混合部署
+### Hybrid Deployment
 
-可以同時支援傳統 TLS 和 PQC TLS 連接，實現平滑過渡：
+Support both PQC and classical TLS for smooth migration:
 
 ```
 fidopqc-rs <-- PQC mTLS --> PQC-enabled Services
 fidopqc-rs <-- TLS --> Legacy Services
 ```
 
-## 貢獻指南
+## Contributing
 
-歡迎貢獻！請遵循以下步驟：
+Contributions are welcome! Please:
 
-1. Fork 專案
-2. 創建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add some amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 開啟 Pull Request
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to your branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 許可證
+## License
 
 MIT

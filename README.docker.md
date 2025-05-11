@@ -1,15 +1,17 @@
-# FIDO2 與 PQC mTLS 演示環境
+# FIDO2 & PQC mTLS Demo Environment (Docker Compose)
 
-這個 Docker Compose 設置提供了一個完整的演示環境，用於展示 FIDO2 無密碼認證與後量子密碼學 mTLS 連接的整合。它特別展示了如何通過 Quantum-Safe-Proxy 使不支援 PQC 的後端服務能夠接收 PQC TLS 連接。
+[English](README.docker.md) | [繁體中文](README.docker.zh-TW.md)
 
-## 演示架構
+This Docker Compose setup provides a complete demo environment to showcase the integration of FIDO2 passwordless authentication and post-quantum cryptography (PQC) mTLS connections. It demonstrates how legacy backend services can accept PQC TLS connections via a Quantum-Safe-Proxy.
+
+## Architecture Overview
 
 ```
 +-------------------+      +---------------------+      +-------------------+
 |                   |      |                     |      |                   |
 |  PasskeyMesh      | PQC  |  Quantum-Safe-      | TLS  |  Backend          |
 |  Gateway          +----->+  Proxy              +----->+  Service          |
-|  (FIDO2 + PQC)    | mTLS |  (OpenSSL 3.5)      |      |  (JWT 驗證)       |
+|  (FIDO2 + PQC)    | mTLS |  (OpenSSL 3.5)      |      |  (JWT Auth)       |
 |                   |      |                     |      |                   |
 +-------------------+      +---------------------+      +-------------------+
         ^
@@ -24,93 +26,91 @@
 +-----------------+
 ```
 
-在這個架構中：
+**Components:**
 
-1. **PasskeyMesh Gateway**：Rust 應用，處理 WebAuthn 認證和 PQC mTLS 連接
-2. **Quantum-Safe-Proxy**：使用 OpenSSL 3.5 的代理，將 PQC TLS 連接轉換為標準 TLS
-3. **Backend Service**：模擬的後端服務，處理 JWT 驗證
+1. **PasskeyMesh Gateway**: Rust app handling WebAuthn authentication and PQC mTLS connections.
+2. **Quantum-Safe-Proxy**: Proxy using OpenSSL 3.5, translating PQC TLS to standard TLS.
+3. **Backend Service**: Simulated backend with JWT authentication.
 
-## 快速開始
+## Quick Start
 
-### 1. 準備證書
+### 1. Prepare Certificates
 
 ```bash
-# 啟動 Quantum-Safe-Proxy 容器
+# Start the Quantum-Safe-Proxy container
 docker compose up -d quantum-safe-proxy
 
-# 執行證書生成腳本
+# Run the certificate generation script
 docker exec -it fidopqc-rs-quantum-safe-proxy-1 /app/scripts/generate_certs.sh
 ```
 
-### 2. 啟動所有服務
+### 2. Start All Services
 
 ```bash
-# 構建並啟動所有服務
+# Build and start all services
 docker compose up -d
 
-# 查看日誌
+# View logs
 docker compose logs -f
 ```
 
-### 3. 訪問演示
+### 3. Access the Demo
 
-- 訪問 http://localhost:3001 進行 WebAuthn 註冊和登錄
-- 訪問 http://localhost:3001/api/auth/verify 查看 PQC TLS 握手信息
+- Visit http://localhost:3001 for WebAuthn registration and login.
+- Visit http://localhost:3001/api/auth/verify to view PQC TLS handshake info.
 
-## 服務說明
+## Service Details
 
-### PasskeyMesh Gateway (Rust 應用)
+### PasskeyMesh Gateway (Rust App)
 
-- **端口**：3001
-- **功能**：WebAuthn 認證、JWT 生成、PQC mTLS 連接
-- **配置**：通過 Docker Compose 中的環境變量配置
+- **Port**: 3001
+- **Features**: WebAuthn authentication, JWT generation, PQC mTLS connection
+- **Config**: Via environment variables in Docker Compose
 
 ### Quantum-Safe-Proxy
 
-- **端口**：8443 (僅內部訪問)
-- **功能**：將 PQC TLS 連接轉換為標準 TLS
-- **配置**：通過 config.json 文件配置
+- **Port**: 8443 (internal only)
+- **Features**: Translates PQC TLS to standard TLS
+- **Config**: Via `config.json`
 
 ### Backend Service
 
-- **端口**：6000 (僅內部訪問)
-- **功能**：處理 API 請求和 JWT 驗證
-- **配置**：通過 OpenResty 配置文件配置
+- **Port**: 6000 (internal only)
+- **Features**: Handles API requests and JWT verification
+- **Config**: Via OpenResty config
 
-## 演示重點
+## Demo Highlights
 
-這個演示環境特別展示了：
+- **PQC Integration**: Showcases how legacy services can accept PQC TLS via proxy.
+- **End-to-End Authentication**: Full flow from WebAuthn registration/login to JWT verification.
+- **PQC TLS Handshake Info**: Displays detailed PQC TLS connection info.
 
-1. **PQC 與傳統系統的整合**：如何使不支援 PQC 的後端服務能夠接收 PQC TLS 連接
-2. **完整的認證流程**：從 WebAuthn 註冊、登錄到 JWT 驗證的完整流程
-3. **PQC TLS 握手信息**：展示 PQC TLS 連接的詳細信息
+## Environment Variables
 
-## 環境變量
+Key environment variables in Docker Compose:
 
-Docker Compose 設置中包含以下主要環境變量：
+| Variable                | Description                        | Default                                      |
+|-------------------------|------------------------------------|----------------------------------------------|
+| `JWT_SECRET`            | JWT signing key                    | `your-jwt-secret-key-for-production`         |
+| `QUANTUM_SAFE_PROXY_URL`| Quantum-Safe-Proxy URL             | `https://quantum-safe-proxy:8443`            |
+| `CLIENT_CERT_PATH`      | Client certificate path            | `/app/certs/hybrid-client/client.crt`        |
+| `CLIENT_KEY_PATH`       | Client private key path            | `/app/certs/hybrid-client/client_pkcs8.key`  |
+| `CA_CERT_PATH`          | CA certificate path                | `/app/certs/hybrid-ca/ca.crt`                |
 
-| 環境變量 | 說明 | 默認值 |
-|---------|------|-------|
-| `JWT_SECRET` | JWT 簽名密鑰 | `your-jwt-secret-key-for-production` |
-| `QUANTUM_SAFE_PROXY_URL` | Quantum-Safe-Proxy 的 URL | `https://quantum-safe-proxy:8443` |
-| `CLIENT_CERT_PATH` | 客戶端憑證路徑 | `/app/certs/hybrid-client/client.crt` |
-| `CLIENT_KEY_PATH` | 客戶端私鑰路徑 | `/app/certs/hybrid-client/client_pkcs8.key` |
-| `CA_CERT_PATH` | CA 憑證路徑 | `/app/certs/hybrid-ca/ca.crt` |
-
-## 故障排除
+## Troubleshooting
 
 ```bash
-# 查看所有服務的日誌
+# View logs for all services
 docker compose logs -f
 
-# 查看特定服務的日誌
+# View logs for a specific service
 docker compose logs -f passkeymesh-gateway
 docker compose logs -f quantum-safe-proxy
 docker compose logs -f backend-service
 ```
 
-## 注意事項
+## Notes
 
-- 這是一個演示環境，不建議在生產環境中直接使用
-- 證書是自簽名的，僅用於演示目的
-- JWT 密鑰是預設的，在生產環境中應使用強隨機值
+- This is a demo environment; do not use in production.
+- Certificates are self-signed and for demo purposes only.
+- Use strong random JWT secrets in production.
