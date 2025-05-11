@@ -1,7 +1,10 @@
 mod webauthn;
-mod call_proxy;
 mod error;
 mod jwt;
+mod tls;
+mod http_client;
+mod api_response;
+mod handler;
 
 use axum::{
     routing::get,
@@ -49,7 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let webauthn = Arc::new(builder.build().expect("Invalid configuration"));
 
     // 創建 PQC mTLS HTTP 客戶端 (僅用於初始化和日誌記錄)
-    let _ = call_proxy::create_pqc_client()?;
+    let _ = http_client::create_pqc_client()?;
 
     // 配置 CORS - 更安全的配置
     let cors = CorsLayer::new()
@@ -69,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/", get(serve_index))
         .nest("/auth", webauthn::routes(Arc::clone(&webauthn)))
-        .route("/api/auth/verify", get(call_proxy::handler).post(call_proxy::handler))
+        .route("/api/auth/verify", get(handler::handle_request).post(handler::handle_request))
         .layer(Extension(Arc::clone(&webauthn)))
         .layer(cors)
         .layer(TraceLayer::new_for_http());
