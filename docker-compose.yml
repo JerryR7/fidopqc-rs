@@ -12,10 +12,15 @@ services:
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key-for-production}
       - JWT_ISSUER=passkeymesh-gateway
       - JWT_AUDIENCE=backend-service
-      - PQC_ALGORITHM=ML-DSA-87+X25519
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      # mTLS 憑證配置
+      - CLIENT_CERT_PATH=/app/certs_hybrid/hybrid-client/client.crt
+      - CLIENT_KEY_PATH=/app/certs_hybrid/hybrid-client/client_pkcs8.key
+      - CA_CERT_PATH=/app/certs_hybrid/hybrid-ca/ca.crt
+      # TLS 會話緩存
+      - TLS_SESSION_CACHE_FILE=/app/tls_session.cache
     volumes:
-      - ./certs:/app/certs
+      - ./certs_hybrid:/app/certs_hybrid
     networks:
       - proxy-network
     restart: unless-stopped
@@ -29,6 +34,7 @@ services:
       - "8443:8443"
     volumes:
       - ./certs:/app/certs
+      - ./certs_hybrid:/app/certs_hybrid
       - ./config.json:/app/config.json
       - ./scripts:/app/scripts
     environment:
@@ -45,13 +51,14 @@ services:
               --listen 0.0.0.0:8443
               --target backend:6000
               --strategy dynamic
-              --hybrid-cert /app/certs/hybrid/ml-dsa-87/server_hybrid.crt
-              --hybrid-key /app/certs/hybrid/ml-dsa-87/server.key
+              --hybrid-cert /app/certs_hybrid/hybrid-server/server.crt
+              --hybrid-key /app/certs_hybrid/hybrid-server/server.key
               --traditional-cert /app/certs/traditional/rsa/server.crt
               --traditional-key /app/certs/traditional/rsa/server.key
-              --client-ca-cert /app/certs/client-ca-chain.pem
+              --client-ca-cert /app/certs_hybrid/hybrid-ca/ca.crt
               --log-level debug
-              --client-cert-mode require --buffer-size 8192
+              --client-cert-mode optional
+              --buffer-size 8192
               --connection-timeout 60
               --openssl-dir /opt/openssl35"]
     networks:

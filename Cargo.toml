@@ -12,9 +12,10 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 webauthn-rs = "0.5.1"
 jsonwebtoken = "8.3"
-rustls = "0.21"
-rustls-pemfile = "1.0"
-reqwest = { version = "0.11", features = ["json", "native-tls"] }
+rustls = { version = "0.23.22", features = ["prefer-post-quantum"] }
+rustls-pemfile = "2.0"
+rustls-post-quantum = "0.2.1"
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
 url = "2.5"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -28,3 +29,5 @@ uuid = { version = "1.3", features = ["v4", "serde"] }
 once_cell = "1.17"
 openssl = { version = "0.10" }
 openssl-sys = { version = "0.9" }
+dotenv = "0.15.0"
+tempfile = "3.8.0"

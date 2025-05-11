@@ -55,14 +55,15 @@ passkeymesh-gateway/
 │   ├── jwt.rs                # JWT 處理
 │   └── error.rs              # 錯誤處理
 ├── index.html                # 前端演示頁面
-└── certs/                    # 證書目錄
-    ├── client.pqc.crt        # 傳統客戶端證書
-    ├── client.pqc.key        # 傳統客戶端私鑰
-    ├── server-ca-chain.pem   # 服務器 CA 證書鏈
-    └── hybrid/               # 混合 PQC 證書目錄
-        └── ml-dsa-87/        # ML-DSA-87 算法
-            ├── client_hybrid.crt  # 混合客戶端證書
-            └── client_rsa.key     # 客戶端 RSA 私鑰
+└── certs_hybrid/             # 證書目錄
+    ├── hybrid-ca/            # CA 證書目錄
+    │   └── ca.crt            # CA 證書 (用於 mTLS 驗證服務器)
+    ├── hybrid-server/        # 服務器證書目錄
+    │   ├── server.crt        # 服務器證書
+    │   └── server.key        # 服務器私鑰
+    └── hybrid-client/        # 客戶端證書目錄
+        ├── client.crt        # 客戶端證書 (用於 mTLS 客戶端身份)
+        └── client.key        # 客戶端私鑰 (用於 mTLS 客戶端簽名)
 ```
 
 ## 安裝和運行
@@ -159,8 +160,7 @@ curl "http://localhost:3000/api/auth/verify"
   "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
   "proxy_status": "200 OK",
   "authenticated": false,
-  "user_info": null,
-  "pqc_algorithm": "ML-DSA-87+X25519"
+  "user_info": null
 }
 ```
 
@@ -191,8 +191,7 @@ curl -X POST "http://localhost:3000/api/auth/verify" \
   "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
   "proxy_status": "200 OK",
   "authenticated": true,
-  "user_info": "用戶名 (用戶ID)",
-  "pqc_algorithm": "ML-DSA-87+X25519"
+  "user_info": "用戶名 (用戶ID)"
 }
 ```
 
@@ -219,14 +218,11 @@ curl -X POST "http://localhost:3000/api/auth/verify" \
   "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
   "proxy_status": "200 OK",
   "authenticated": true,
-  "user_info": "用戶名 (用戶ID)",
-  "pqc_algorithm": "ML-DSA-87+X25519"
+  "user_info": "用戶名 (用戶ID)"
 }
 ```
 
 如果未提供有效的 JWT 令牌，響應將顯示 `"authenticated": false` 和 `"user_info": null`。
-
-您可以在響應中看到 `pqc_algorithm` 字段，它顯示了用於 mTLS 連接的後量子密碼學算法。
 
 ## 證書管理
 
@@ -284,10 +280,12 @@ chmod +x scripts/generate_local_certs.sh
 | `JWT_SECRET` | JWT 簽名密鑰 | `your-jwt-secret-key-for-production` |
 | `JWT_ISSUER` | JWT 發行者 | `passkeymesh-gateway` |
 | `JWT_AUDIENCE` | JWT 受眾 | `backend-service` |
-| `PQC_ALGORITHM` | 使用的後量子密碼學算法 | `ML-DSA-87+X25519` |
 | `ENVIRONMENT` | 運行環境 | `development` |
 | `RUST_LOG` | 日誌級別 | `info,tower_http=debug,passkeymesh_gateway=trace` |
 | `QUANTUM_SAFE_PROXY_URL` | 量子安全代理的 URL | `https://quantum-safe-proxy:8443` |
+| `CLIENT_CERT_PATH` | 客戶端憑證路徑 (mTLS) | `certs_hybrid/hybrid-client/client.crt` |
+| `CLIENT_KEY_PATH` | 客戶端私鑰路徑 (mTLS) | `certs_hybrid/hybrid-client/client.key` |
+| `CA_CERT_PATH` | CA 憑證路徑 (mTLS) | `certs_hybrid/hybrid-ca/ca.crt` |
 
 您可以通過以下方式設置環境變量：
 

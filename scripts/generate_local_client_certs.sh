@@ -25,7 +25,27 @@ if [ ! -f "${CERTS_DIR}/root-ca.key" ] || [ ! -f "${CERTS_DIR}/root-ca.crt" ]; t
     echo "生成根 CA 證書..."
     # 生成根 CA 證書
     openssl genrsa -out ${CERTS_DIR}/root-ca.key 4096
-    openssl req -new -x509 -days 3650 -key ${CERTS_DIR}/root-ca.key -out ${CERTS_DIR}/root-ca.crt -subj "/CN=Root CA" -extensions v3_ca
+
+    # 創建一個臨時的 OpenSSL 配置文件
+    cat > ${CERTS_DIR}/openssl.cnf << EOF
+[ req ]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+x509_extensions = v3_ca
+
+[ req_distinguished_name ]
+CN = Common Name
+
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+
+[ v3_ca ]
+basicConstraints = critical,CA:true
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+EOF
+
+    openssl req -new -x509 -days 3650 -key ${CERTS_DIR}/root-ca.key -out ${CERTS_DIR}/root-ca.crt -subj "/CN=Root CA" -config ${CERTS_DIR}/openssl.cnf -extensions v3_ca
 fi
 
 # 檢查客戶端 CA 證書是否存在
@@ -34,7 +54,9 @@ if [ ! -f "${CERTS_DIR}/client-ca.key" ] || [ ! -f "${CERTS_DIR}/client-ca.crt" 
     # 生成客戶端 CA 證書
     openssl genrsa -out ${CERTS_DIR}/client-ca.key 3072
     openssl req -new -key ${CERTS_DIR}/client-ca.key -out ${CERTS_DIR}/client-ca.csr -subj "/CN=Client CA"
-    openssl x509 -req -days 1825 -in ${CERTS_DIR}/client-ca.csr -CA ${CERTS_DIR}/root-ca.crt -CAkey ${CERTS_DIR}/root-ca.key -CAcreateserial -out ${CERTS_DIR}/client-ca.crt -extensions v3_ca
+
+    # 使用之前創建的 OpenSSL 配置文件
+    openssl x509 -req -days 1825 -in ${CERTS_DIR}/client-ca.csr -CA ${CERTS_DIR}/root-ca.crt -CAkey ${CERTS_DIR}/root-ca.key -CAcreateserial -out ${CERTS_DIR}/client-ca.crt -extfile ${CERTS_DIR}/openssl.cnf -extensions v3_ca
     rm -f ${CERTS_DIR}/client-ca.csr
 
     # 創建客戶端 CA 鏈
@@ -76,7 +98,24 @@ ${OPENSSL_PQC} req -new -key ${HYBRID_DIR}/client_ml_dsa_87.key -out ${HYBRID_DI
 
 # 使用客戶端 CA 簽署 PQC 證書
 echo "簽署 PQC 客戶端證書..."
-${OPENSSL_PQC} x509 -req -days 365 -in ${HYBRID_DIR}/client_ml_dsa_87.csr -CA ${CERTS_DIR}/client-ca.crt -CAkey ${CERTS_DIR}/client-ca.key -CAcreateserial -out ${HYBRID_DIR}/client_ml_dsa_87.crt -extfile <(printf "subjectAltName=DNS:client,DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=clientAuth")
+# 添加客戶端擴展到 OpenSSL 配置文件
+cat >> ${CERTS_DIR}/openssl.cnf << EOF
+
+[ client_ext ]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+subjectAltName = @alt_names_client
+authorityKeyIdentifier = keyid:always,issuer:always
+
+[alt_names_client]
+DNS.1 = client
+DNS.2 = localhost
+IP.1 = 127.0.0.1
+EOF
+
+# 使用配置文件簽署證書
+${OPENSSL_PQC} x509 -req -days 365 -in ${HYBRID_DIR}/client_ml_dsa_87.csr -CA ${CERTS_DIR}/client-ca.crt -CAkey ${CERTS_DIR}/client-ca.key -CAcreateserial -out ${HYBRID_DIR}/client_ml_dsa_87.crt -extfile ${CERTS_DIR}/openssl.cnf -extensions client_ext
 
 # 創建混合證書
 echo "創建混合證書..."

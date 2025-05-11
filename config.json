@@ -7,7 +7,7 @@
     "hybrid_key": "/app/certs/hybrid/ml-dsa-87/server.key",
     "traditional_cert": "/app/certs/traditional/rsa/server.crt",
     "traditional_key": "/app/certs/traditional/rsa/server.key",
-    "client_ca_cert": "/app/certs/traditional/rsa/ca.crt",
+    "client_ca_cert": "/app/certs/client-ca-chain.pem",
     "client_cert_mode": "optional",
     "buffer_size": 8192,
     "connection_timeout": 60

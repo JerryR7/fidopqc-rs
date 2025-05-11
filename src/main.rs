@@ -19,10 +19,14 @@ use tower_http::{
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use webauthn_rs::prelude::*;
 use url::Url;
+use dotenv::dotenv;
 
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // 加載 .env 文件
+    dotenv().ok();
+
     // 初始化日誌
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
@@ -35,7 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 配置 WebAuthn
     let rp_id = "localhost";
-    let rp_origin = Url::parse("http://localhost:3000").unwrap();
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse::<u16>().unwrap_or(3001);
+    let rp_origin = Url::parse(&format!("http://localhost:{}", port)).unwrap();
 
     let builder = WebauthnBuilder::new(rp_id, &rp_origin)
         .expect("Invalid configuration")
@@ -48,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 配置 CORS - 更安全的配置
     let cors = CorsLayer::new()
-        .allow_origin(["http://localhost:3000".parse().unwrap()])  // 只允許特定來源
+        .allow_origin([format!("http://localhost:{}", port).parse().unwrap()])  // 只允許特定來源
         .allow_methods(vec![
             axum::http::Method::GET,
             axum::http::Method::POST,
@@ -71,7 +76,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(TraceLayer::new_for_http());
 
     // 啟動服務器
-    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse::<u16>().unwrap_or(3000);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("Server listening on {}", addr);
 

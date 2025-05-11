@@ -1,0 +1,4 @@
+[ client_ext ]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature
+extendedKeyUsage = clientAuth
