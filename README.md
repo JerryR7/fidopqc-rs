@@ -63,7 +63,7 @@ This project demonstrates how to implement these advanced security technologies 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/fidopqc-rs.git
+git clone https://github.com/JerryR7/fidopqc-rs.git
 cd fidopqc-rs
 ```
 
