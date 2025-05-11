@@ -2,32 +2,73 @@
 name = "passkeymesh-gateway"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Jerry <vp780412@gmail.com>"]
 description = "A gateway that provides WebAuthn authentication and PQC mTLS connection to backend services"
+license = "MIT"
+repository = "https://github.com/JerryR7/fidopqc-rs"
+readme = "README.md"
+keywords = ["webauthn", "fido2", "pqc", "mtls", "authentication"]
+categories = ["authentication", "web-programming", "cryptography"]
+rust-version = "1.86.0"
 
 [dependencies]
+# Web 框架和服務器
 axum = { version = "0.6", features = ["json", "headers"] }
 tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.4", features = ["cors", "trace"] }
+
+# 序列化和反序列化
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+
+# WebAuthn 相關
 webauthn-rs = "0.5.1"
+
+# JWT 處理
 jsonwebtoken = "8.3"
-rustls = { version = "0.23.22", features = ["prefer-post-quantum"] }
-rustls-pemfile = "2.0"
-rustls-post-quantum = "0.2.1"
+
+# HTTP 客戶端
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+
+# URL 處理
 url = "2.5"
+
+# 日誌
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tower-http = { version = "0.4", features = ["cors", "trace"] }
+
+# 錯誤處理
 thiserror = "1.0"
-anyhow = "1.0"
-base64 = "0.21"
-rand = "0.8"
+
+# 時間處理
 chrono = "0.4"
+
+# UUID 生成
 uuid = { version = "1.3", features = ["v4", "serde"] }
+
+# 單例模式
 once_cell = "1.17"
+
+# OpenSSL 相關 (用於 PQC TLS)
 openssl = { version = "0.10" }
 openssl-sys = { version = "0.9" }
+
+# 環境變量
 dotenv = "0.15.0"
+
+# 臨時文件處理
 tempfile = "3.8.0"
+
+[profile.release]
+# 優化級別
+opt-level = 3
+# 啟用 LTO (Link Time Optimization)
+lto = true
+# 啟用調試信息
+debug = false
+# 啟用代碼分割
+codegen-units = 1
+# 啟用恐慌展開
+panic = "abort"
+# 啟用符號剝離
+strip = true
