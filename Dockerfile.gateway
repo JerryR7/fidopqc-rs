@@ -2,77 +2,77 @@ FROM rust:1.86.0-slim-bookworm AS builder
 
 WORKDIR /usr/src/app
 
-# 安裝依賴
+# Install dependencies
 RUN apt-get update && \
     apt-get install -y pkg-config libssl-dev perl libfindbin-libs-perl && \
     rm -rf /var/lib/apt/lists/*
 
-# 從 quantum-safe-proxy 映像中複製 OpenSSL 3.5
+# Copy OpenSSL 3.5 from quantum-safe-proxy image
 COPY --from=quantum-safe-proxy:openssl35 /opt/openssl35 /opt/openssl35
 
-# 指定用 /opt/openssl35 的 OpenSSL，並關閉 vendored build
+# Use OpenSSL from /opt/openssl35 and disable vendored build
 ENV OPENSSL_DIR=/opt/openssl35 \
     OPENSSL_LIB_DIR=/opt/openssl35/lib \
     OPENSSL_INCLUDE_DIR=/opt/openssl35/include \
     OPENSSL_NO_VENDOR=1
 
-# 設置 OpenSSL 3.5 環境變量
+# Set OpenSSL 3.5 environment variables
 ENV PATH=$PATH:/opt/openssl35/bin
 ENV LD_LIBRARY_PATH=/opt/openssl35/lib64:/opt/openssl35/lib
 ENV OPENSSL_DIR=/opt/openssl35
 ENV OPENSSL_LIB_DIR=/opt/openssl35/lib64
 ENV OPENSSL_INCLUDE_DIR=/opt/openssl35/include
 
-# 複製 Cargo.toml 和 Cargo.lock
+# Copy Cargo.toml and Cargo.lock
 COPY Cargo.toml Cargo.lock ./
 
-# 創建一個虛擬的 src/main.rs 以便緩存依賴
+# Create a dummy src/main.rs for dependency caching
 RUN mkdir -p src && \
     echo "fn main() {println!(\"Dummy implementation\");}" > src/main.rs
 
-# 構建依賴
+# Build dependencies
 RUN cargo build --release
 
-# 刪除虛擬的 src 目錄和構建緩存
+# Remove dummy src directory and build cache
 RUN rm -rf src target/release/deps/passkeymesh_gateway*
 
-# 複製實際的源代碼
+# Copy actual source code
 COPY src ./src
 COPY index.html ./
 
-# 構建實際的應用程序
+# Build actual application
 RUN cargo build --release
 
-# 最終階段
+# Final stage
 FROM debian:bookworm-slim AS final
 
 WORKDIR /app
 
-# 安裝運行時依賴
+# Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y ca-certificates libssl3 && \
     rm -rf /var/lib/apt/lists/*
 
-# 從 quantum-safe-proxy 映像中複製 OpenSSL 3.5
+# Copy OpenSSL 3.5 from quantum-safe-proxy image
 COPY --from=quantum-safe-proxy:openssl35 /opt/openssl35 /opt/openssl35
 
-# 設置 OpenSSL 3.5 環境變量
+# Set OpenSSL 3.5 environment variables
 ENV PATH=$PATH:/opt/openssl35/bin
 ENV LD_LIBRARY_PATH=/opt/openssl35/lib64:/opt/openssl35/lib
 ENV OPENSSL_DIR=/opt/openssl35
 ENV OPENSSL_LIB_DIR=/opt/openssl35/lib64
 ENV OPENSSL_INCLUDE_DIR=/opt/openssl35/include
 
-# 從構建階段複製二進制文件
+# Copy binary from build stage
 COPY --from=builder /usr/src/app/target/release/passkeymesh-gateway /app/
 COPY --from=builder /usr/src/app/index.html /app/
 
-# 設置環境變量
+# Set environment variables
 ENV RUST_LOG=info,tower_http=debug,passkeymesh_gateway=trace
 ENV QUANTUM_SAFE_PROXY_URL=https://quantum-safe-proxy:8443
 
-# 暴露端口
+# Expose port
 EXPOSE 3000
 
-# 運行應用程序
+# Run application
 CMD ["./passkeymesh-gateway"]

@@ -27,10 +27,10 @@ use dotenv::dotenv;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 加載 .env 文件
+    // Load .env file
     dotenv().ok();
 
-    // 初始化日誌
+    // Initialize logging
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info,tower_http=debug".into()),
@@ -40,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Starting PasskeyMesh Gateway...");
 
-    // 配置 WebAuthn
+    // Configure WebAuthn
     let rp_id = "localhost";
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse::<u16>().unwrap_or(3001);
     let rp_origin = Url::parse(&format!("http://localhost:{}", port)).unwrap();
@@ -51,24 +51,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let webauthn = Arc::new(builder.build().expect("Invalid configuration"));
 
-    // 創建 PQC mTLS HTTP 客戶端 (僅用於初始化和日誌記錄)
+    // Create PQC mTLS HTTP client (only for initialization and logging)
     let _ = http_client::create_pqc_client()?;
 
-    // 配置 CORS - 更安全的配置
+    // Configure CORS - more secure configuration
     let cors = CorsLayer::new()
-        .allow_origin([format!("http://localhost:{}", port).parse().unwrap()])  // 只允許特定來源
+        .allow_origin([format!("http://localhost:{}", port).parse().unwrap()])  // Only allow specific origins
         .allow_methods(vec![
             axum::http::Method::GET,
             axum::http::Method::POST,
             axum::http::Method::OPTIONS,
-        ])  // 只允許特定方法
+        ])  // Only allow specific methods
         .allow_headers(vec![
             axum::http::header::AUTHORIZATION,
             axum::http::header::CONTENT_TYPE,
-        ])  // 只允許特定標頭
-        .allow_credentials(true);  // 允許憑證
+        ])  // Only allow specific headers
+        .allow_credentials(true);  // Allow credentials
 
-    // 創建路由
+    // Create routes
     let app = Router::new()
         .route("/", get(serve_index))
         .nest("/auth", webauthn::routes(Arc::clone(&webauthn)))
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
-    // 啟動服務器
+    // Start server
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     tracing::info!("Server listening on {}", addr);
 
@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// 提供 index.html 頁面
+// Serve index.html page
 async fn serve_index() -> Result<Html<String>, (StatusCode, String)> {
     let index_path = PathBuf::from("index.html");
 

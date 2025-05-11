@@ -90,7 +90,7 @@ impl IntoResponse for AppError {
             },
         };
 
-        // 添加安全標頭
+        // Add security headers
         let mut response = Response::builder()
             .status(status)
             .header("Content-Type", "application/json")
@@ -98,7 +98,7 @@ impl IntoResponse for AppError {
             .header("X-Frame-Options", "DENY")
             .header("X-XSS-Protection", "1; mode=block");
 
-        // 如果是生產環境，添加 HSTS 標頭
+        // If in production environment, add HSTS header
         if std::env::var("ENVIRONMENT").unwrap_or_default() == "production" {
             response = response.header(
                 "Strict-Transport-Security",
@@ -106,7 +106,7 @@ impl IntoResponse for AppError {
             );
         }
 
-        // 構建錯誤響應體
+        // Build error response body
         let body = Json(json!({
             "status": "error",
             "code": error_code,
@@ -114,11 +114,11 @@ impl IntoResponse for AppError {
             "timestamp": chrono::Utc::now().to_rfc3339()
         }));
 
-        // 構建最終響應
+        // Build final response
         match response.body(body.into_response().into_body()) {
             Ok(resp) => resp,
             Err(_) => {
-                // 如果構建響應失敗，返回一個簡單的錯誤響應
+                // If response building fails, return a simple error response
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({

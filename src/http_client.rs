@@ -4,7 +4,7 @@ use serde_json::Value;
 use crate::error::{AppError, AppResult};
 use crate::tls::TlsConfig;
 
-/// HTTP 狀態結構體
+/// HTTP status structure
 #[derive(Debug, Clone)]
 pub struct HttpStatus {
     pub code: u16,
@@ -12,7 +12,7 @@ pub struct HttpStatus {
 }
 
 impl HttpStatus {
-    /// 從狀態行解析 HTTP 狀態
+    /// Parse HTTP status from status line
     pub fn from_status_line(status_line: &str) -> Self {
         let parts: Vec<&str> = status_line.split_whitespace().collect();
         let code = if parts.len() >= 2 {
@@ -27,18 +27,18 @@ impl HttpStatus {
         }
     }
 
-    /// 檢查是否為成功狀態碼 (2xx)
+    /// Check if status code is successful (2xx)
     #[allow(dead_code)]
     pub fn is_success(&self) -> bool {
         self.code >= 200 && self.code < 300
     }
 
-    /// 檢查是否為錯誤狀態碼 (4xx, 5xx)
+    /// Check if status code is error (4xx, 5xx)
     pub fn is_error(&self) -> bool {
         self.code >= 400
     }
 
-    /// 轉換為 JSON 對象
+    /// Convert to JSON object
     pub fn to_json(&self) -> Value {
         serde_json::json!({
             "status_line": self.line,
@@ -47,14 +47,14 @@ impl HttpStatus {
     }
 }
 
-/// HTTP 響應結構體
+/// HTTP response structure
 #[derive(Debug)]
 pub struct HttpResponse {
     pub status: HttpStatus,
     pub body: String,
 }
 
-/// 創建 PQC TLS 客戶端
+/// Create PQC TLS client
 pub fn create_pqc_client() -> AppResult<Client> {
     let config = TlsConfig::new();
     tracing::info!("Using OpenSSL: {}, Cert: {}, Key: {}, CA: {}",
@@ -65,7 +65,7 @@ pub fn create_pqc_client() -> AppResult<Client> {
         .map_err(|e| AppError::Internal(format!("HTTP client error: {}", e)))
 }
 
-/// 從 HTTP 響應中提取 JSON
+/// Extract JSON from HTTP response
 pub fn extract_json(raw: &str) -> String {
     if let Some(start) = raw.find('{') {
         let json = &raw[start..];
@@ -80,11 +80,11 @@ pub fn extract_json(raw: &str) -> String {
         .join("\n")
 }
 
-/// 發送 HTTP 請求並獲取響應
+/// Send HTTP request and get response
 pub fn send_request(host: &str, port: u16, path: &str, auth: Option<&str>) -> AppResult<HttpResponse> {
     let config = TlsConfig::new();
 
-    // HTTP 請求
+    // HTTP request
     let mut req = String::with_capacity(256);
     req.push_str(&format!("GET {} HTTP/1.1\r\nHost: {}\r\n", path, host));
 
@@ -95,7 +95,7 @@ pub fn send_request(host: &str, port: u16, path: &str, auth: Option<&str>) -> Ap
     req.push_str("X-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\n");
     req.push_str("X-XSS-Protection: 1; mode=block\r\nConnection: close\r\n\r\n");
 
-    // 執行請求
+    // Execute request
     let output = config.run(host, port, &["-quiet"], Some(req.as_bytes()))?;
 
     if !output.status.success() {
@@ -103,7 +103,7 @@ pub fn send_request(host: &str, port: u16, path: &str, auth: Option<&str>) -> Ap
         return Err(AppError::Internal(format!("TLS connection failed: {}", stderr)));
     }
 
-    // 解析響應
+    // Parse response
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parts: Vec<&str> = stdout.splitn(2, "\r\n\r\n").collect();
 

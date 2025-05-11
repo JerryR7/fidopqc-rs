@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// API 響應結構體
+/// API response structure
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse {
     pub status: String,
@@ -10,7 +10,7 @@ pub struct ApiResponse {
     pub tls_info: Value,
 }
 
-/// API 響應構建器
+/// API response builder
 pub struct ApiResponseBuilder {
     status: String,
     backend_response: Value,
@@ -19,7 +19,7 @@ pub struct ApiResponseBuilder {
 }
 
 impl ApiResponseBuilder {
-    /// 創建新的 API 響應構建器
+    /// Create new API response builder
     pub fn new() -> Self {
         Self {
             status: "success".to_string(),
@@ -29,31 +29,31 @@ impl ApiResponseBuilder {
         }
     }
 
-    /// 設置狀態
+    /// Set status
     pub fn status(mut self, status: impl Into<String>) -> Self {
         self.status = status.into();
         self
     }
 
-    /// 設置後端響應
+    /// Set backend response
     pub fn backend_response(mut self, response: Value) -> Self {
         self.backend_response = response;
         self
     }
 
-    /// 設置代理信息
+    /// Set proxy information
     pub fn proxy_info(mut self, info: Value) -> Self {
         self.proxy_info = info;
         self
     }
 
-    /// 設置 TLS 信息
+    /// Set TLS information
     pub fn tls_info(mut self, info: Value) -> Self {
         self.tls_info = info;
         self
     }
 
-    /// 構建 API 響應
+    /// Build API response
     pub fn build(self) -> ApiResponse {
         ApiResponse {
             status: self.status,
@@ -70,20 +70,20 @@ impl Default for ApiResponseBuilder {
     }
 }
 
-/// 檢查請求是否已認證
+/// Check if request is authenticated
 pub fn is_authenticated(auth: &str) -> bool {
     !auth.is_empty() && auth.starts_with("Bearer ")
 }
 
-/// 確保後端響應中的認證狀態與請求的認證狀態一致
+/// Ensure authentication status in backend response is consistent with request authentication status
 pub fn ensure_auth_consistency(backend_json: &Value, is_auth: bool) -> Value {
     let mut modified = backend_json.clone();
 
     if let Some(obj) = modified.as_object_mut() {
-        // 根據請求的認證狀態設置後端響應中的認證狀態
+        // Set authentication status in backend response based on request authentication status
         obj.insert("authenticated".to_string(), Value::Bool(is_auth));
 
-        // 如果請求未認證，將 user_info 設置為 null
+        // If request is not authenticated, set user_info to null
         if !is_auth {
             obj.insert("user_info".to_string(), Value::Null);
         }
@@ -92,7 +92,7 @@ pub fn ensure_auth_consistency(backend_json: &Value, is_auth: bool) -> Value {
     modified
 }
 
-/// 根據後端響應和 HTTP 狀態確定響應狀態
+/// Determine response status based on backend response and HTTP status
 pub fn determine_response_status(backend_json: &Value, status_code: u16) -> String {
     if backend_json.get("status").and_then(|v| v.as_str()) == Some("error") {
         "error".to_string()
@@ -103,7 +103,7 @@ pub fn determine_response_status(backend_json: &Value, status_code: u16) -> Stri
     }
 }
 
-/// 創建錯誤響應
+/// Create error response
 #[allow(dead_code)]
 pub fn create_error_response(message: &str) -> ApiResponse {
     ApiResponseBuilder::new()

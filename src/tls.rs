@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::error::{AppError, AppResult};
 
-/// TLS 配置結構體，包含 OpenSSL 路徑和證書路徑
+/// TLS configuration structure, containing OpenSSL path and certificate paths
 pub struct TlsConfig {
     pub openssl: String,
     pub cert: String,
@@ -12,7 +12,7 @@ pub struct TlsConfig {
 }
 
 impl TlsConfig {
-    /// 創建新的 TLS 配置，從環境變量或默認值獲取路徑
+    /// Create new TLS configuration, getting paths from environment variables or default values
     pub fn new() -> Self {
         Self {
             openssl: env::var("OPENSSL_PATH").unwrap_or_else(|_| {
@@ -35,7 +35,7 @@ impl TlsConfig {
         }
     }
 
-    /// 執行 OpenSSL 命令
+    /// Execute OpenSSL command
     pub fn run(&self, host: &str, port: u16, args: &[&str], stdin: Option<&[u8]>) -> AppResult<std::process::Output> {
         let mut cmd = Command::new(&self.openssl);
         cmd.arg("s_client")
@@ -70,7 +70,7 @@ impl TlsConfig {
         }
     }
 
-    /// 獲取 OpenSSL 版本
+    /// Get OpenSSL version
     pub fn version(&self) -> String {
         Command::new(&self.openssl)
             .arg("version")
@@ -79,30 +79,30 @@ impl TlsConfig {
             .unwrap_or_else(|_| "Unknown".to_string())
     }
 
-    // 這些方法已不再需要，因為字段現在是公開的
+    // These methods are no longer needed because the fields are now public
 }
 
-/// 獲取 TLS 連接信息
+/// Get TLS connection information
 pub fn get_tls_info(host: &str, port: u16) -> AppResult<Value> {
     let config = TlsConfig::new();
 
-    // 使用 -brief 參數獲取簡潔的 TLS 信息
+    // Use -brief parameter to get concise TLS information
     let output = config.run(host, port, &["-brief"], None)?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
-    // 合併 stdout 和 stderr，以便同時檢查兩者中的 TLS 信息
+    // Merge stdout and stderr to check TLS information in both
     let tls_output = format!("{}\n{}", stdout, stderr);
 
-    // 連接狀態
+    // Connection status
     let connection_status = if output.status.success() {
         "Successful".to_string()
     } else {
         format!("Error: {}", stderr)
     };
 
-    // 通用的提取函數，支持多種模式匹配
+    // Generic extraction function, supporting multiple pattern matching
     let extract_value = |patterns: &[&str], default: &str| -> String {
         for pattern in patterns {
             for line in tls_output.lines() {
@@ -119,42 +119,42 @@ pub fn get_tls_info(host: &str, port: u16) -> AppResult<Value> {
         default.to_string()
     };
 
-    // 提取 TLS 協議版本
+    // Extract TLS protocol version
     let protocol = extract_value(
         &["Protocol version:", "Protocol:"],
         "Unknown"
     );
 
-    // 提取密碼套件信息
+    // Extract cipher suite information
     let mut cipher = extract_value(
         &["Ciphersuite:", "Cipher is", "Cipher:"],
         "Unknown"
     );
 
-    // 清理 cipher 值，只保留密碼套件名稱
+    // Clean cipher value, keeping only the cipher suite name
     if !cipher.is_empty() && cipher != "Unknown" && cipher.contains("TLS_") {
         if let Some(pos) = cipher.find("TLS_") {
             cipher = cipher[pos..].trim().to_string();
         }
     }
 
-    // 提取密鑰交換信息
+    // Extract key exchange information
     let key_exchange = extract_value(
         &["Negotiated TLS1.3 group:", "Server Temp Key:"],
         "Unknown"
     );
 
-    // 提取簽名類型信息
+    // Extract signature type information
     let signature_type = extract_value(
         &["Signature type:"],
         "Unknown"
     );
 
-    // 只輸出簡短的摘要信息
+    // Output only brief summary information
     tracing::debug!("TLS Connection: Protocol={}, Cipher={}, KeyExchange={}, SignatureType={}",
                    protocol, cipher, key_exchange, signature_type);
 
-    // 創建 JSON 格式的 TLS 信息
+    // Create JSON format TLS information
     let tls_info = serde_json::json!({
         "connection": connection_status,
         "protocol": protocol,

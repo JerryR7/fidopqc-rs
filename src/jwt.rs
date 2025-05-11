@@ -4,13 +4,13 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use crate::error::{AppError, AppResult};
 
-// 從環境變量獲取 JWT 密鑰
+// Get JWT secret from environment variable
 static JWT_SECRET: Lazy<String> = Lazy::new(|| {
     std::env::var("JWT_SECRET")
         .expect("Missing JWT_SECRET environment variable. Please set it before starting the application.")
 });
 
-// 從環境變量獲取發行者和受眾
+// Get issuer and audience from environment variables
 static JWT_ISSUER: Lazy<String> = Lazy::new(|| {
     std::env::var("JWT_ISSUER").unwrap_or_else(|_| "passkeymesh-gateway".to_string())
 });
@@ -21,15 +21,15 @@ static JWT_AUDIENCE: Lazy<String> = Lazy::new(|| {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,      // 用戶 ID
-    pub name: String,     // 用戶名稱
-    pub exp: usize,       // 過期時間
-    pub iat: usize,       // 簽發時間
-    pub iss: String,      // 發行者
-    pub aud: String,      // 受眾
+    pub sub: String,      // User ID
+    pub name: String,     // Username
+    pub exp: usize,       // Expiration time
+    pub iat: usize,       // Issued at time
+    pub iss: String,      // Issuer
+    pub aud: String,      // Audience
 }
 
-/// 為用戶簽發 JWT 令牌
+/// Issue JWT token for user
 pub fn issue_jwt(user_id: &str, username: &str) -> AppResult<String> {
     let now = Utc::now();
     let expires_at = now + Duration::hours(24);

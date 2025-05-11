@@ -13,7 +13,7 @@ services:
       - JWT_ISSUER=passkeymesh-gateway
       - JWT_AUDIENCE=backend-service
       - ENVIRONMENT=${ENVIRONMENT:-development}
-      # mTLS 憑證配置
+      # mTLS certificate configuration
       - CLIENT_CERT_PATH=/app/certs/hybrid-client/client.crt
       - CLIENT_KEY_PATH=/app/certs/hybrid-client/client.key
       - CA_CERT_PATH=/app/certs/hybrid-ca/ca.crt
