@@ -4,7 +4,7 @@
 set -e
 
 OPENSSL="/usr/local/opt/openssl@3.5/bin/openssl"  # 使用完整路徑
-CERTS_DIR="./certs_hybrid"
+CERTS_DIR="./certs"
 CA_DIR="${CERTS_DIR}/hybrid-ca"
 SERVER_DIR="${CERTS_DIR}/hybrid-server"
 CLIENT_DIR="${CERTS_DIR}/hybrid-client"

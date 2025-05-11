@@ -48,8 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let webauthn = Arc::new(builder.build().expect("Invalid configuration"));
 
-    // 創建 PQC mTLS HTTP 客戶端
-    let http_client = call_proxy::create_pqc_client()?;
+    // 創建 PQC mTLS HTTP 客戶端 (僅用於初始化和日誌記錄)
+    let _ = call_proxy::create_pqc_client()?;
 
     // 配置 CORS - 更安全的配置
     let cors = CorsLayer::new()
@@ -70,7 +70,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/", get(serve_index))
         .nest("/auth", webauthn::routes(Arc::clone(&webauthn)))
         .route("/api/auth/verify", get(call_proxy::handler).post(call_proxy::handler))
-        .layer(Extension(http_client))
         .layer(Extension(Arc::clone(&webauthn)))
         .layer(cors)
         .layer(TraceLayer::new_for_http());

@@ -43,19 +43,31 @@ PasskeyMesh Gateway 是一個結合 WebAuthn 無密碼登入和後量子密碼�
 ## 目錄結構
 
 ```text
-passkeymesh-gateway/
+fidopqc-rs/
 ├── Cargo.toml                # Rust 項目配置
 ├── Cargo.lock                # 依賴鎖定文件
 ├── docker-compose.yml        # Docker Compose 配置
 ├── Dockerfile.gateway        # PasskeyMesh Gateway 的 Dockerfile
+├── Dockerfile.openresty      # Backend Service 的 Dockerfile
+├── config.json               # Quantum-Safe-Proxy 配置
 ├── src/
 │   ├── main.rs               # 程序入口
 │   ├── webauthn.rs           # WebAuthn 註冊和登錄邏輯
 │   ├── call_proxy.rs         # 代理請求邏輯（PQC mTLS）
 │   ├── jwt.rs                # JWT 處理
 │   └── error.rs              # 錯誤處理
+├── scripts/                  # 腳本目錄
+│   ├── generate_certs.sh     # 生成 PQC 證書的腳本
+│   ├── clean_certs.sh        # 清理證書的腳本
+│   └── docker-entrypoint.sh  # Docker 容器入口腳本
+├── docker/                   # Docker 相關文件
+│   └── nginx/                # Nginx 配置
+│       ├── html/             # 靜態文件
+│       └── openresty.conf    # OpenResty 配置
 ├── index.html                # 前端演示頁面
-└── certs_hybrid/             # 證書目錄
+├── .env                      # 環境變量配置
+├── .env.example              # 環境變量示例
+└── certs/             # 證書目錄 (由腳本生成)
     ├── hybrid-ca/            # CA 證書目錄
     │   └── ca.crt            # CA 證書 (用於 mTLS 驗證服務器)
     ├── hybrid-server/        # 服務器證書目錄
@@ -63,7 +75,7 @@ passkeymesh-gateway/
     │   └── server.key        # 服務器私鑰
     └── hybrid-client/        # 客戶端證書目錄
         ├── client.crt        # 客戶端證書 (用於 mTLS 客戶端身份)
-        └── client.key        # 客戶端私鑰 (用於 mTLS 客戶端簽名)
+        └── client.key  # 客戶端私鑰 (用於 mTLS 客戶端簽名)
 ```
 
 ## 安裝和運行
@@ -84,9 +96,9 @@ docker compose logs -f
 
 這將啟動三個容器：
 
-- **passkeymesh-gateway**：WebAuthn 服務和 PQC mTLS 客戶端
-- **quantum-safe-proxy**：支持後量子密碼學的 TLS 代理
-- **backend-service**：模擬的後端 API 服務
+- **passkeymesh-gateway**：WebAuthn 服務和 PQC mTLS 客戶端（http://localhost:3001）
+- **quantum-safe-proxy**：支持後量子密碼學的 TLS 代理（https://localhost:8443）
+- **backend-service**：模擬的後端 API 服務（http://localhost:6000，僅內部訪問）
 
 ### 方法 2：本地開發環境
 
@@ -119,26 +131,26 @@ docker compose logs -f
 #### 1. 註冊新用戶
 
 ```bash
-curl -X POST http://localhost:3000/auth/register \
+curl -X POST http://localhost:3001/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username": "testuser"}'
 ```
 
 #### 2. 完成註冊（在瀏覽器中）
 
-訪問 `http://localhost:3000` 並使用返回的挑戰完成註冊過程。系統將提示您使用生物識別（如指紋）或安全密鑰來創建 FIDO2 憑證。
+訪問 `http://localhost:3001` 並使用返回的挑戰完成註冊過程。系統將提示您使用生物識別（如指紋）或安全密鑰來創建 FIDO2 憑證。
 
 #### 3. 登錄
 
 ```bash
-curl -X POST http://localhost:3000/auth/login \
+curl -X POST http://localhost:3001/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username": "testuser"}'
 ```
 
 #### 4. 完成登錄（在瀏覽器中）
 
-訪問 `http://localhost:3000` 並使用返回的挑戰完成登錄過程。系統將提示您使用之前註冊的生物識別或安全密鑰進行身份驗證。
+訪問 `http://localhost:3001` 並使用返回的挑戰完成登錄過程。系統將提示您使用之前註冊的生物識別或安全密鑰進行身份驗證。
 
 #### 5. 訪問 API
 
@@ -150,7 +162,7 @@ curl -X POST http://localhost:3000/auth/login \
 
 ```bash
 # 使用 API 端點
-curl "http://localhost:3000/api/auth/verify"
+curl "http://localhost:3001/api/auth/verify"
 ```
 
 響應示例：
@@ -160,7 +172,8 @@ curl "http://localhost:3000/api/auth/verify"
   "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
   "proxy_status": "200 OK",
   "authenticated": false,
-  "user_info": null
+  "user_info": null,
+  "tls_info": "TLS Connection: Successful\nProtocol  : TLSv1.3\nCipher    : TLS_AES_256_GCM_SHA384\nServer Temp Key: X25519, 253 bits\nPost-Quantum Cryptography: Enabled\nClient Certificate: certs/hybrid-client/client.crt\nCA Certificate: certs/hybrid-ca/ca.crt\nOpenSSL Version: OpenSSL 3.5.0 (with post-quantum support)"
 }
 ```
 
@@ -170,7 +183,7 @@ curl "http://localhost:3000/api/auth/verify"
 
 ```bash
 # GET 請求
-curl "http://localhost:3000/api/auth/verify" \
+curl "http://localhost:3001/api/auth/verify" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -178,7 +191,7 @@ curl "http://localhost:3000/api/auth/verify" \
 
 ```bash
 # POST 請求
-curl -X POST "http://localhost:3000/api/auth/verify" \
+curl -X POST "http://localhost:3001/api/auth/verify" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{}'
@@ -188,52 +201,59 @@ curl -X POST "http://localhost:3000/api/auth/verify" \
 
 ```json
 {
-  "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
+  "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\",\"authenticated\":true,\"user_info\":\"testuser (1234-5678-9012)\"}",
   "proxy_status": "200 OK",
   "authenticated": true,
-  "user_info": "用戶名 (用戶ID)"
+  "user_info": "\"testuser (1234-5678-9012)\"",
+  "tls_info": "TLS Connection: Successful\nProtocol  : TLSv1.3\nCipher    : TLS_AES_256_GCM_SHA384\nServer Temp Key: X25519, 253 bits\nPost-Quantum Cryptography: Enabled\nClient Certificate: certs/hybrid-client/client.crt\nCA Certificate: certs/hybrid-ca/ca.crt\nOpenSSL Version: OpenSSL 3.5.0 (with post-quantum support)"
 }
 ```
 
-### PQC mTLS 連接測試
+響應中的 `tls_info` 字段包含了 PQC TLS 連接的詳細信息，包括使用的密碼套件、密鑰交換算法和 OpenSSL 版本等。
 
-測試與 Quantum-Safe-Proxy 的 PQC mTLS 連接：
+### PQC TLS 握手信息
 
-```bash
-# GET 請求
-curl "http://localhost:3000/api/auth/verify" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+系統會在每次 API 請求時返回 PQC TLS 握手的詳細信息，包括：
 
-# 或 POST 請求
-curl -X POST "http://localhost:3000/api/auth/verify" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{}'
-```
+1. **TLS 連接狀態**：顯示連接是否成功建立
+2. **TLS 協議版本**：使用的 TLS 版本（TLSv1.3）
+3. **密碼套件**：使用的加密算法（如 TLS_AES_256_GCM_SHA384）
+4. **密鑰交換算法**：使用的混合密鑰交換算法（X25519MLKEM768）
+5. **PQC 狀態**：確認後量子密碼學是否啟用
+6. **憑證信息**：使用的客戶端和 CA 憑證路徑
+7. **OpenSSL 版本**：使用的 OpenSSL 版本和 PQC 支持狀態
 
-如果一切正常，您將收到類似以下的響應：
+這些信息可以幫助您確認系統是否正確使用了 PQC 算法進行 TLS 握手。
 
 ```json
-{
-  "result": "{\"status\":\"success\",\"message\":\"Backend API is working!\"}",
-  "proxy_status": "200 OK",
-  "authenticated": true,
-  "user_info": "用戶名 (用戶ID)"
-}
+"tls_info": "TLS Connection: Successful\nProtocol  : TLSv1.3\nCipher    : TLS_AES_256_GCM_SHA384\nServer Temp Key: X25519, 253 bits\nPost-Quantum Cryptography: Enabled\nClient Certificate: certs/hybrid-client/client.crt\nCA Certificate: certs/hybrid-ca/ca.crt\nOpenSSL Version: OpenSSL 3.5.0 (with post-quantum support)"
 ```
 
-如果未提供有效的 JWT 令牌，響應將顯示 `"authenticated": false` 和 `"user_info": null`。
+您可以通過訪問 `/api/auth/verify` 端點來測試 PQC TLS 連接，無論是否提供 JWT 令牌，系統都會返回 TLS 握手信息。
 
 ## 證書管理
 
+### 證書目錄結構
+
+本項目使用以下目錄結構來組織 PQC 憑證：
+
+```text
+certs/
+├── hybrid-ca/            # CA 證書目錄
+│   └── ca.crt            # CA 證書 (用於 mTLS 驗證服務器)
+├── hybrid-server/        # 服務器證書目錄
+│   ├── server.crt        # 服務器證書
+│   └── server.key        # 服務器私鑰
+└── hybrid-client/        # 客戶端證書目錄
+    ├── client.crt        # 客戶端證書 (用於 mTLS 客戶端身份)
+    └── client_pkcs8.key  # 客戶端私鑰 (用於 mTLS 客戶端簽名)
+```
+
 ### 證書生成腳本
 
-本項目包含多個用於生成證書的腳本，所有腳本都位於 `scripts/` 目錄下：
+本項目包含用於生成證書的腳本，位於 `scripts/` 目錄下：
 
-- `generate_certs.sh`：在 Docker 容器中生成所有證書（推薦使用）
-- `generate_local_certs.sh`：在本地環境生成所有證書（需要 OpenSSL 3.5）
-- `generate_local_client_certs.sh`：僅生成客戶端證書
-- `generate_local_server_certs.sh`：僅生成服務器證書
+- `generate_certs.sh`：使用 OpenSSL 3.5 生成所有 PQC 混合證書
 - `clean_certs.sh`：清理所有證書
 
 #### 使用 Docker 生成證書（推薦）
@@ -254,22 +274,21 @@ docker exec -it fidopqc-rs-quantum-safe-proxy-1 /app/scripts/generate_certs.sh
 
 ```bash
 # 確保腳本有執行權限
-chmod +x scripts/generate_local_certs.sh
+chmod +x scripts/generate_certs.sh
 
 # 執行腳本
-./scripts/generate_local_certs.sh
+./scripts/generate_certs.sh
 ```
 
-### 混合 PQC 證書
+### 混合 PQC 證書說明
 
-系統使用混合 PQC 證書進行 mTLS 連接，這些證書結合了傳統密碼學（RSA/ECC）和後量子密碼學算法（如 ML-DSA-87）。
+系統使用 OpenSSL 3.5 原生支援的 PQC 算法生成混合證書，用於 mTLS 連接：
 
-生成的證書將位於 `certs/hybrid/ml-dsa-87/` 目錄中：
+1. **CA 證書**：使用 ML-DSA-87 算法生成，用於簽署服務器和客戶端證書
+2. **服務器證書**：使用 ML-DSA-87 算法生成，並由 CA 簽署
+3. **客戶端證書**：使用 ML-DSA-87 算法生成，並由 CA 簽署
 
-- `client_hybrid.crt`：混合客戶端證書
-- `client_rsa.key`：客戶端 RSA 私鑰
-- `server_hybrid.crt`：混合服務器證書
-- `server.key`：服務器私鑰
+在 TLS 握手過程中，系統使用 X25519MLKEM768 混合密鑰交換算法，這是一種結合了傳統橢圓曲線密碼學 (X25519) 和後量子密碼學 (MLKEM768) 的混合算法。
 
 ## 環境變量配置
 
@@ -282,10 +301,12 @@ chmod +x scripts/generate_local_certs.sh
 | `JWT_AUDIENCE` | JWT 受眾 | `backend-service` |
 | `ENVIRONMENT` | 運行環境 | `development` |
 | `RUST_LOG` | 日誌級別 | `info,tower_http=debug,passkeymesh_gateway=trace` |
-| `QUANTUM_SAFE_PROXY_URL` | 量子安全代理的 URL | `https://quantum-safe-proxy:8443` |
-| `CLIENT_CERT_PATH` | 客戶端憑證路徑 (mTLS) | `certs_hybrid/hybrid-client/client.crt` |
-| `CLIENT_KEY_PATH` | 客戶端私鑰路徑 (mTLS) | `certs_hybrid/hybrid-client/client.key` |
-| `CA_CERT_PATH` | CA 憑證路徑 (mTLS) | `certs_hybrid/hybrid-ca/ca.crt` |
+| `QUANTUM_SAFE_PROXY_URL` | 量子安全代理的 URL | `https://localhost:8443` |
+| `PORT` | 服務器監聽端口 | `3001` |
+| `CLIENT_CERT_PATH` | 客戶端憑證路徑 (mTLS) | `certs/hybrid-client/client.crt` |
+| `CLIENT_KEY_PATH` | 客戶端私鑰路徑 (mTLS) | `certs/hybrid-client/client_pkcs8.key` |
+| `CA_CERT_PATH` | CA 憑證路徑 (mTLS) | `certs/hybrid-ca/ca.crt` |
+| `OPENSSL_PATH` | OpenSSL 3.5 可執行文件路徑 | 自動檢測 |
 
 您可以通過以下方式設置環境變量：
 

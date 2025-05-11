@@ -42,7 +42,6 @@ yarn-error.log*
 # 證書和密鑰文件
 # 完全排除證書目錄，證書將通過腳本生成
 certs/
-certs_hybrid/
 *.crt
 *.key
 *.pem
