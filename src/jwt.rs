@@ -4,13 +4,11 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use crate::error::{AppError, AppResult};
 
-// Get JWT secret from the environment variable
+// JWT environment variables
 static JWT_SECRET: Lazy<String> = Lazy::new(|| {
-    std::env::var("JWT_SECRET")
-        .expect("Missing JWT_SECRET environment variable. Please set it before starting the application.")
+    std::env::var("JWT_SECRET").expect("Missing JWT_SECRET environment variable")
 });
 
-// Get issuer and audience from environment variables
 static JWT_ISSUER: Lazy<String> = Lazy::new(|| {
     std::env::var("JWT_ISSUER").unwrap_or_else(|_| "passkeymesh-gateway".to_string())
 });
@@ -19,37 +17,31 @@ static JWT_AUDIENCE: Lazy<String> = Lazy::new(|| {
     std::env::var("JWT_AUDIENCE").unwrap_or_else(|_| "backend-service".to_string())
 });
 
+// JWT claims structure
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,      // User ID
-    pub name: String,     // Username
-    pub exp: usize,       // Expiration time
-    pub iat: usize,       // Issued at time
-    pub iss: String,      // Issuer
-    pub aud: String,      // Audience
+    pub sub: String,  // User ID
+    pub name: String, // Username
+    pub exp: usize,   // Expiration time
+    pub iat: usize,   // Issued at
+    pub iss: String,  // Issuer
+    pub aud: String,  // Audience
 }
 
-/// Issue JWT token for user
+// Issue JWT token for user
 pub fn issue_jwt(user_id: &str, username: &str) -> AppResult<String> {
     let now = Utc::now();
-    let expires_at = now + Duration::hours(24);
 
-    let claims = Claims {
-        sub: user_id.to_string(),
-        name: username.to_string(),
-        exp: expires_at.timestamp() as usize,
-        iat: now.timestamp() as usize,
-        iss: JWT_ISSUER.to_string(),
-        aud: JWT_AUDIENCE.to_string(),
-    };
-
-    let token = encode(
+    encode(
         &Header::default(),
-        &claims,
+        &Claims {
+            sub: user_id.to_string(),
+            name: username.to_string(),
+            exp: (now + Duration::hours(24)).timestamp() as usize,
+            iat: now.timestamp() as usize,
+            iss: JWT_ISSUER.to_string(),
+            aud: JWT_AUDIENCE.to_string(),
+        },
         &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
-    ).map_err(|e| AppError::Jwt(e))?;
-
-    Ok(token)
+    ).map_err(AppError::Jwt)
 }
-
-

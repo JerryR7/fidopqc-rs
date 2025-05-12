@@ -1,109 +1,57 @@
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    Json,
-};
+use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
 use serde_json::json;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AppError {
-    #[error("Authentication error: {0}")]
-    Authentication(String),
-
-    #[error("WebAuthn error: {0}")]
-    WebAuthn(#[from] webauthn_rs::prelude::WebauthnError),
-
-    #[error("JWT error: {0}")]
-    Jwt(#[from] jsonwebtoken::errors::Error),
-
-    #[error("TLS configuration error: {0}")]
-    #[allow(dead_code)]
-    TlsConfig(String),
-
-    #[error("HTTP client error: {0}")]
-    HttpClient(#[from] reqwest::Error),
-
-    #[error("PEM error: {0}")]
-    #[allow(dead_code)]
-    Pem(String),
-
-    #[error("Internal server error: {0}")]
-    Internal(String),
+    #[error("Authentication error: {0}")] Authentication(String),
+    #[error("WebAuthn error: {0}")] WebAuthn(#[from] webauthn_rs::prelude::WebauthnError),
+    #[error("JWT error: {0}")] Jwt(#[from] jsonwebtoken::errors::Error),
+    #[error("HTTP client error: {0}")] HttpClient(#[from] reqwest::Error),
+    #[error("Internal server error: {0}")] Internal(String),
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
+        // Determine status code and error message based on error type
         let (status, error_message, error_code) = match self {
-            AppError::Authentication(msg) => (
-                StatusCode::UNAUTHORIZED,
-                msg,
-                "AUTH_ERROR"
-            ),
+            AppError::Authentication(msg) => {
+                (StatusCode::UNAUTHORIZED, msg, "AUTH_ERROR")
+            },
             AppError::WebAuthn(e) => {
                 tracing::error!("WebAuthn error: {}", e);
-                (
-                    StatusCode::BAD_REQUEST,
-                    e.to_string(),
-                    "WEBAUTHN_ERROR"
-                )
+                (StatusCode::BAD_REQUEST, e.to_string(), "WEBAUTHN_ERROR")
             },
             AppError::Jwt(e) => {
                 tracing::error!("JWT error: {}", e);
-                (
-                    StatusCode::UNAUTHORIZED,
-                    e.to_string(),
-                    "JWT_ERROR"
-                )
-            },
-            AppError::TlsConfig(e) => {
-                tracing::error!("TLS configuration error: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error".to_string(),
-                    "TLS_CONFIG_ERROR"
-                )
+                (StatusCode::UNAUTHORIZED, e.to_string(), "JWT_ERROR")
             },
             AppError::HttpClient(e) => {
                 tracing::error!("HTTP client error: {}", e);
-                (
-                    StatusCode::BAD_GATEWAY,
-                    "Failed to communicate with backend service".to_string(),
-                    "HTTP_CLIENT_ERROR"
-                )
+                (StatusCode::BAD_GATEWAY, "Unable to communicate with backend service".to_string(), "HTTP_CLIENT_ERROR")
             },
             AppError::Internal(e) => {
                 tracing::error!("Internal server error: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error".to_string(),
-                    "INTERNAL_ERROR"
-                )
-            },
-            AppError::Pem(e) => {
-                tracing::error!("PEM error: {}", e);
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "Certificate error".to_string(),
-                    "PEM_ERROR"
-                )
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string(), "INTERNAL_ERROR")
             },
         };
 
-        // Add security headers
-        let mut response = Response::builder()
-            .status(status)
-            .header("Content-Type", "application/json")
-            .header("X-Content-Type-Options", "nosniff")
-            .header("X-Frame-Options", "DENY")
-            .header("X-XSS-Protection", "1; mode=block");
+        // Build response
+        let headers = [
+            ("Content-Type", "application/json"),
+            ("X-Content-Type-Options", "nosniff"),
+            ("X-Frame-Options", "DENY"),
+            ("X-XSS-Protection", "1; mode=block"),
+        ];
 
-        // If in a production environment, add HSTS header
+        let mut builder = Response::builder().status(status);
+        for (key, value) in headers {
+            builder = builder.header(key, value);
+        }
+
+        // Add HSTS header in production
         if std::env::var("ENVIRONMENT").unwrap_or_default() == "production" {
-            response = response.header(
-                "Strict-Transport-Security",
-                "max-age=31536000; includeSubDomains"
-            );
+            builder = builder.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
         }
 
         // Build error response body
@@ -115,20 +63,14 @@ impl IntoResponse for AppError {
         }));
 
         // Build final response
-        match response.body(body.into_response().into_body()) {
-            Ok(resp) => resp,
-            Err(_) => {
-                // If response building fails, return a simple error response
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "status": "error",
-                        "code": "RESPONSE_BUILD_ERROR",
-                        "message": "Failed to build error response"
-                    }))
-                ).into_response()
-            }
-        }
+        builder.body(body.into_response().into_body())
+            .unwrap_or_else(|_| {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
+                    "status": "error",
+                    "code": "RESPONSE_BUILD_ERROR",
+                    "message": "Failed to build error response"
+                }))).into_response()
+            })
     }
 }
 

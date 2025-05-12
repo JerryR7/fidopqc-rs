@@ -6,31 +6,19 @@ mod http_client;
 mod api_response;
 mod handler;
 
-use axum::{
-    routing::get,
-    Router,
-    Extension,
-    response::Html,
-    http::StatusCode,
-};
-use std::{sync::Arc, path::PathBuf, net::SocketAddr};
+use axum::{routing::get, Router, Extension, response::Html, http::StatusCode};
+use std::{sync::Arc, net::SocketAddr};
 use tokio::fs;
-use tower_http::{
-    cors::CorsLayer,
-    trace::TraceLayer,
-};
+use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use webauthn_rs::prelude::*;
 use url::Url;
 use dotenv::dotenv;
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load .env file
+    // Load environment variables and initialize logging
     dotenv().ok();
-
-    // Initialize logging
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
             std::env::var("RUST_LOG").unwrap_or_else(|_| "info,tower_http=debug".into()),
@@ -41,32 +29,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting PasskeyMesh Gateway...");
 
     // Configure WebAuthn
-    let rp_id = "localhost";
-    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse::<u16>().unwrap_or(3001);
-    let rp_origin = Url::parse(&format!("http://localhost:{}", port)).unwrap();
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string())
+        .parse::<u16>().unwrap_or(3001);
 
-    let builder = WebauthnBuilder::new(rp_id, &rp_origin)
-        .expect("Invalid configuration")
-        .rp_name("PasskeyMesh Gateway");
+    let webauthn = Arc::new(
+        WebauthnBuilder::new("localhost", &Url::parse(&format!("http://localhost:{}", port)).unwrap())
+            .expect("Invalid configuration")
+            .rp_name("PasskeyMesh Gateway")
+            .build()
+            .expect("Invalid configuration")
+    );
 
-    let webauthn = Arc::new(builder.build().expect("Invalid configuration"));
-
-    // Create PQC mTLS HTTP client (only for initialization and logging)
+    // Initialize PQC mTLS HTTP client
     let _ = http_client::create_pqc_client()?;
 
-    // Configure CORS - more secure configuration
+    // Configure CORS
     let cors = CorsLayer::new()
-        .allow_origin([format!("http://localhost:{}", port).parse().unwrap()])  // Only allow specific origins
+        .allow_origin([format!("http://localhost:{}", port).parse().unwrap()])
         .allow_methods(vec![
             axum::http::Method::GET,
             axum::http::Method::POST,
             axum::http::Method::OPTIONS,
-        ])  // Only allow specific methods
+        ])
         .allow_headers(vec![
             axum::http::header::AUTHORIZATION,
             axum::http::header::CONTENT_TYPE,
-        ])  // Only allow specific headers
-        .allow_credentials(true);  // Allow credentials
+        ])
+        .allow_credentials(true);
 
     // Create routes
     let app = Router::new()
@@ -88,11 +77,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// Serve the index.html page
+// Serve index.html page
 async fn serve_index() -> Result<Html<String>, (StatusCode, String)> {
-    let index_path = PathBuf::from("index.html");
-
-    match fs::read_to_string(index_path).await {
+    match fs::read_to_string("index.html").await {
         Ok(content) => Ok(Html(content)),
         Err(err) => {
             tracing::error!("Failed to read index.html: {}", err);
