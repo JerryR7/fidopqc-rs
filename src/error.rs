@@ -98,7 +98,7 @@ impl IntoResponse for AppError {
             .header("X-Frame-Options", "DENY")
             .header("X-XSS-Protection", "1; mode=block");
 
-        // If in production environment, add HSTS header
+        // If in a production environment, add HSTS header
         if std::env::var("ENVIRONMENT").unwrap_or_default() == "production" {
             response = response.header(
                 "Strict-Transport-Security",

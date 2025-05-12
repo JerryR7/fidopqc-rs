@@ -41,7 +41,7 @@ pub async fn handle_request(headers: axum::http::HeaderMap) -> AppResult<Json<Ap
                     // Check authentication status
                     let auth_status = is_authenticated(&auth);
 
-                    // Ensure authentication status in backend response is consistent with request authentication status
+                    // Ensure authentication status in the backend response is consistent with request authentication status
                     let modified_backend_json = ensure_auth_consistency(&backend_json, auth_status);
 
                     // Determine response status
@@ -56,7 +56,7 @@ pub async fn handle_request(headers: axum::http::HeaderMap) -> AppResult<Json<Ap
                         .build()
                 },
                 Err(_) => {
-                    // If cannot parse as JSON, create a JSON object containing the raw response
+                    // If it cannot parse as JSON, create a JSON object containing the raw response
                     let fallback_json = serde_json::json!({
                         "raw_response": http_response.body,
                         "parse_error": "Could not parse response as JSON"

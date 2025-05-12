@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// Serve index.html page
+// Serve the index.html page
 async fn serve_index() -> Result<Html<String>, (StatusCode, String)> {
     let index_path = PathBuf::from("index.html");
 

@@ -130,7 +130,7 @@ async fn start_register(
         },
     );
 
-    // Create registration challenge
+    // Create a registration challenge
     let user_unique_id = Uuid::new_v4();
     let (ccr, reg_state) = webauthn
         .start_passkey_registration(
@@ -217,7 +217,7 @@ async fn start_login(
         return Err(AppError::Authentication("No credentials found for user".to_string()));
     }
 
-    // Create authentication challenge
+    // Create an authentication challenge
     let (auth_challenge, auth_state) = webauthn
         .start_passkey_authentication(&user.credentials)
         .map_err(AppError::WebAuthn)?;

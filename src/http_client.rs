@@ -12,7 +12,7 @@ pub struct HttpStatus {
 }
 
 impl HttpStatus {
-    /// Parse HTTP status from status line
+    /// Parse HTTP status from the status line
     pub fn from_status_line(status_line: &str) -> Self {
         let parts: Vec<&str> = status_line.split_whitespace().collect();
         let code = if parts.len() >= 2 {
@@ -27,7 +27,7 @@ impl HttpStatus {
         }
     }
 
-    /// Check if status code is successful (2xx)
+    /// Check if the status code is successful (2xx)
     #[allow(dead_code)]
     pub fn is_success(&self) -> bool {
         self.code >= 200 && self.code < 300

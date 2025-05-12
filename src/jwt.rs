@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use crate::error::{AppError, AppResult};
 
-// Get JWT secret from environment variable
+// Get JWT secret from the environment variable
 static JWT_SECRET: Lazy<String> = Lazy::new(|| {
     std::env::var("JWT_SECRET")
         .expect("Missing JWT_SECRET environment variable. Please set it before starting the application.")

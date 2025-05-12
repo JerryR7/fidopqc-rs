@@ -19,7 +19,7 @@ pub struct ApiResponseBuilder {
 }
 
 impl ApiResponseBuilder {
-    /// Create new API response builder
+    /// Create a new API response builder
     pub fn new() -> Self {
         Self {
             status: "success".to_string(),
@@ -70,20 +70,20 @@ impl Default for ApiResponseBuilder {
     }
 }
 
-/// Check if request is authenticated
+/// Check if the request is authenticated
 pub fn is_authenticated(auth: &str) -> bool {
     !auth.is_empty() && auth.starts_with("Bearer ")
 }
 
-/// Ensure authentication status in backend response is consistent with request authentication status
+/// Ensure authentication status in the backend response is consistent with request authentication status
 pub fn ensure_auth_consistency(backend_json: &Value, is_auth: bool) -> Value {
     let mut modified = backend_json.clone();
 
     if let Some(obj) = modified.as_object_mut() {
-        // Set authentication status in backend response based on request authentication status
+        // Set authentication status in the backend response based on request authentication status
         obj.insert("authenticated".to_string(), Value::Bool(is_auth));
 
-        // If request is not authenticated, set user_info to null
+        // If the request is not authenticated, set user_info to null
         if !is_auth {
             obj.insert("user_info".to_string(), Value::Null);
         }

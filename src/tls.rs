@@ -86,7 +86,7 @@ impl TlsConfig {
 pub fn get_tls_info(host: &str, port: u16) -> AppResult<Value> {
     let config = TlsConfig::new();
 
-    // Use -brief parameter to get concise TLS information
+    // Use - brief parameter to get concise TLS information
     let output = config.run(host, port, &["-brief"], None)?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
