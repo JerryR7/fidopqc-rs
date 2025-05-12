@@ -18,8 +18,14 @@ use crate::{
 // User storage
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
+    /// User ID as UUID string - this is also used as the WebAuthn user handle
+    /// This ID must be stable and unique for each user to ensure proper credential binding
     pub id: String,
+
+    /// Username for display purposes
     pub name: String,
+
+    /// List of registered passkeys (credentials) for this user
     pub credentials: Vec<Passkey>,
 }
 
@@ -117,37 +123,52 @@ async fn start_register(
         return Err(AppError::Authentication("Username cannot be empty".to_string()));
     }
 
+    // Check if username already exists
+    let mut store = user_store.lock().map_err(|e| AppError::Internal(format!("Failed to lock user store: {}", e)))?;
+    if store.values().any(|u| u.name == username) {
+        return Err(AppError::Authentication("Username already exists".to_string()));
+    }
+
+    // Generate a stable user ID that will be used as the user handle
     let user_id = Uuid::new_v4().to_string();
+    let user_unique_id = Uuid::parse_str(&user_id).map_err(|e| AppError::Internal(format!("Failed to parse UUID: {}", e)))?;
+
+    // Create a new user with empty credentials
+    let user = User {
+        id: user_id.clone(),
+        name: username.to_string(),
+        credentials: Vec::new(),
+    };
 
     // Store user
-    let mut store = user_store.lock().unwrap();
-    store.insert(
-        user_id.clone(),
-        User {
-            id: user_id.clone(),
-            name: username.to_string(),
-            credentials: Vec::new(),
-        },
-    );
+    store.insert(user_id.clone(), user.clone());
 
     // Create a registration challenge
-    let user_unique_id = Uuid::new_v4();
+    // Use the same UUID for user_id and user_handle to ensure proper binding
+    // For new users, there are no credentials to exclude
+    let exclude_credentials = None;
+
     let (ccr, reg_state) = webauthn
         .start_passkey_registration(
             user_unique_id,
             &username,
             &username,
-            None,
+            exclude_credentials,
         )
         .map_err(AppError::WebAuthn)?;
 
     // Store registration state
-    let mut reg_store = registration_state_store.lock().unwrap();
+    let mut reg_store = registration_state_store.lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock registration state store: {}", e)))?;
     reg_store.insert(user_id.clone(), reg_state);
 
     // Print registration challenge structure
-    let ccr_json = serde_json::to_value(&ccr).unwrap();
-    tracing::info!("Registration challenge: {}", serde_json::to_string_pretty(&ccr_json).unwrap());
+    let ccr_json = serde_json::to_value(&ccr)
+        .map_err(|e| AppError::Internal(format!("Failed to serialize challenge: {}", e)))?;
+
+    if let Ok(pretty) = serde_json::to_string_pretty(&ccr_json) {
+        tracing::info!("Registration challenge: {}", pretty);
+    }
 
     Ok(Json(RegisterResponse {
         public_key: ccr_json,
@@ -168,14 +189,18 @@ async fn finish_register(
     }
 
     // Find user
-    let mut store = user_store.lock().unwrap();
+    let mut store = user_store.lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock user store: {}", e)))?;
+
     let user = store
         .values_mut()
         .find(|u| u.name == username)
         .ok_or_else(|| AppError::Authentication("User not found".to_string()))?;
 
     // Get registration state
-    let mut reg_store = registration_state_store.lock().unwrap();
+    let mut reg_store = registration_state_store.lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock registration state store: {}", e)))?;
+
     let reg_state = reg_store
         .remove(&user.id)
         .ok_or_else(|| AppError::Authentication("Registration session expired".to_string()))?;
@@ -207,7 +232,9 @@ async fn start_login(
     }
 
     // Find user
-    let store = user_store.lock().unwrap();
+    let store = user_store.lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock user store: {}", e)))?;
+
     let user = store
         .values()
         .find(|u| u.name == username)
@@ -217,17 +244,23 @@ async fn start_login(
         return Err(AppError::Authentication("No credentials found for user".to_string()));
     }
 
-    // Create an authentication challenge
+    // Create an authentication challenge with allowCredentials list
     let (auth_challenge, auth_state) = webauthn
         .start_passkey_authentication(&user.credentials)
         .map_err(AppError::WebAuthn)?;
 
     // Print authentication challenge structure
-    let auth_challenge_json = serde_json::to_value(&auth_challenge).unwrap();
-    tracing::info!("Authentication challenge: {}", serde_json::to_string_pretty(&auth_challenge_json).unwrap());
+    let auth_challenge_json = serde_json::to_value(&auth_challenge)
+        .map_err(|e| AppError::Internal(format!("Failed to serialize challenge: {}", e)))?;
+
+    if let Ok(pretty) = serde_json::to_string_pretty(&auth_challenge_json) {
+        tracing::info!("Authentication challenge: {}", pretty);
+    }
 
     // Store authentication state
-    let mut auth_store = authentication_state_store.lock().unwrap();
+    let mut auth_store = authentication_state_store.lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock authentication state store: {}", e)))?;
+
     auth_store.insert(user.id.clone(), auth_state);
 
     Ok(Json(LoginResponse {
@@ -248,28 +281,66 @@ async fn finish_login(
     }
 
     // Find user
-    let mut store = user_store.lock().unwrap();
+    let mut store = user_store.lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock user store: {}", e)))?;
+
     let user = store
         .values_mut()
         .find(|u| u.name == username)
         .ok_or_else(|| AppError::Authentication("User not found".to_string()))?;
 
     // Get authentication state
-    let mut auth_store = authentication_state_store.lock().unwrap();
+    let mut auth_store = authentication_state_store.lock()
+        .map_err(|e| AppError::Internal(format!("Failed to lock authentication state store: {}", e)))?;
+
     let auth_state = auth_store
         .remove(&user.id)
         .ok_or_else(|| AppError::Authentication("Authentication session expired".to_string()))?;
 
-    // Verify login
-    webauthn
+    // Verify login and get authentication result
+    let auth_result = webauthn
         .finish_passkey_authentication(&req.credential, &auth_state)
         .map_err(AppError::WebAuthn)?;
 
-    // Update credential counter
-    // In a real application, we should update the credential counter
-    // But since AuthenticationResult's cred_id is private, we can't access it directly
-    // Here we simplify by directly generating a JWT token
+    // Verify that the user handle in the credential matches the user's ID
+    verify_user_handle(&req.credential, &user.id)?;
+
+    // Update credential counter to prevent replay attacks
+    let cred_id = auth_result.cred_id();
+    if let Some(credential) = user.credentials.iter_mut().find(|c| c.cred_id() == cred_id) {
+        // Update the credential with the authentication result
+        credential.update_credential(&auth_result);
+        tracing::info!("Updated counter for credential {:?}", cred_id);
+    } else {
+        tracing::error!("Could not find credential with ID {:?} to update counter", cred_id);
+    }
+
+    // Generate JWT token
     let token = jwt::issue_jwt(&user.id, &user.name)?;
 
     Ok(Json(FinishLoginResponse { token }))
+}
+
+/// Verify that the user handle in the credential matches the expected user ID
+/// This is a critical security check to prevent credential substitution attacks
+fn verify_user_handle(credential: &PublicKeyCredential, expected_user_id: &str) -> AppResult<()> {
+    if let Some(user_handle) = &credential.response.user_handle {
+        let expected_uuid = Uuid::parse_str(expected_user_id)
+            .map_err(|e| AppError::Internal(format!("Failed to parse user ID as UUID: {}", e)))?;
+
+        let credential_user_handle = Uuid::from_slice(user_handle)
+            .map_err(|e| AppError::Authentication(format!("Invalid user handle in credential: {}", e)))?;
+
+        if credential_user_handle != expected_uuid {
+            return Err(AppError::Authentication(
+                "User handle mismatch - possible credential substitution attack".to_string()
+            ));
+        }
+
+        Ok(())
+    } else {
+        // According to WebAuthn spec, user_handle should be present in cross-origin authentication
+        tracing::warn!("No user handle in authentication response - this may be a security risk");
+        Ok(())
+    }
 }
