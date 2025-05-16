@@ -3,14 +3,27 @@
 # and ensure that both Server/Client can use these certificates to complete authentication under TLS 1.3 with hybrid key exchange (X25519MLKEM768) + traditional X25519 transport channel.
 set -e
 
-OPENSSL="/usr/local/opt/openssl@3.5/bin/openssl"  # Use full path
+# Find OpenSSL 3.5 binary
+if [ -f "/usr/local/opt/openssl@3.5/bin/openssl" ]; then
+    OPENSSL="/usr/local/opt/openssl@3.5/bin/openssl"
+elif [ -f "/opt/openssl35/bin/openssl" ]; then
+    OPENSSL="/opt/openssl35/bin/openssl"
+elif command -v openssl35 &> /dev/null; then
+    OPENSSL="openssl35"
+else
+    OPENSSL="openssl"
+fi
+
+echo "Using OpenSSL: $OPENSSL"
+
 CERTS_DIR="./certs"
 CA_DIR="${CERTS_DIR}/hybrid-ca"
 SERVER_DIR="${CERTS_DIR}/hybrid-server"
 CLIENT_DIR="${CERTS_DIR}/hybrid-client"
+BACKEND_DIR="${CERTS_DIR}/backend"
 
 # Create directories
-mkdir -p "${CA_DIR}" "${SERVER_DIR}" "${CLIENT_DIR}"
+mkdir -p "${CA_DIR}" "${SERVER_DIR}" "${CLIENT_DIR}" "${BACKEND_DIR}"
 
 echo "1️⃣ Generate PQC CA (ML-DSA-87)"
 "$OPENSSL" genpkey -algorithm ML-DSA-87 -out "${CA_DIR}/ca.key"
@@ -60,9 +73,17 @@ echo "5️⃣ Sign Client CSR with Hybrid CA → Hybrid Client Cert"
     -out "${CLIENT_DIR}/client.crt" -days 365 \
     -extfile "${CLIENT_DIR}/client_ext.cnf" -extensions client_ext
 
+echo "6️⃣ Generate Backend TLS certificates (traditional RSA)"
+"$OPENSSL" genrsa -out "${BACKEND_DIR}/server.key" 2048
+"$OPENSSL" req -new -x509 -key "${BACKEND_DIR}/server.key" -out "${BACKEND_DIR}/server.crt" \
+    -days 365 -subj "/CN=backend"
+
+# Set permissions
+chmod 644 "${BACKEND_DIR}/server.crt"
+chmod 600 "${BACKEND_DIR}/server.key"
+
 echo "✅ All certificates have been generated:"
 echo "  CA    → ${CA_DIR}/ca.crt"
 echo "  Server→ ${SERVER_DIR}/server.crt, ${SERVER_DIR}/server.key"
 echo "  Client→ ${CLIENT_DIR}/client.crt, ${CLIENT_DIR}/client.key"
-
-
+echo "  Backend→ ${BACKEND_DIR}/server.crt, ${BACKEND_DIR}/server.key"
