@@ -61,7 +61,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/", get(serve_index))
         .nest("/auth", webauthn::routes(Arc::clone(&webauthn)))
+        // Original route for backward compatibility
         .route("/api/auth/verify", get(handler::handle_request).post(handler::handle_request))
+        // New microservice routes
+        .route("/api/logs", get(handler::handle_request).post(handler::handle_request))
+        .route("/api/users", get(handler::handle_user_request).post(handler::handle_user_request))
+        .route("/api/payments", get(handler::handle_payment_request).post(handler::handle_payment_request))
+        // Dynamic service routing
+        .route("/api/:service", get(handler::handle_service_by_path).post(handler::handle_service_by_path))
         .layer(Extension(Arc::clone(&webauthn)))
         .layer(cors)
         .layer(TraceLayer::new_for_http());

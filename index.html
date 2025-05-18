@@ -87,9 +87,11 @@
         </div>
 
         <div class="card">
-            <h2>Access Backend API</h2>
-            <div>
-                <button id="api-button">Access API</button>
+            <h2>Access Microservices</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <button id="log-button" class="service-button">Log Service</button>
+                <button id="user-button" class="service-button">User Service</button>
+                <button id="payment-button" class="service-button">Payment Service</button>
             </div>
             <div id="api-result" class="result" style="display: none;"></div>
         </div>
@@ -268,8 +270,8 @@
             }
         });
 
-        // API access functionality
-        document.getElementById('api-button').addEventListener('click', async () => {
+        // Function to access a service API
+        async function accessService(endpoint) {
             try {
                 // Prepare request options
                 const options = {
@@ -283,7 +285,7 @@
                 }
 
                 // Send request
-                const apiResponse = await fetch('/api/auth/verify', options);
+                const apiResponse = await fetch(endpoint, options);
 
                 if (!apiResponse.ok) {
                     throw new Error(`API request failed: ${apiResponse.status}`);
@@ -295,12 +297,29 @@
                 const authStatus = apiData.backend_response && apiData.backend_response.authenticated ? 'Authenticated' : 'Not Authenticated';
                 const userInfo = apiData.backend_response && apiData.backend_response.user_info ?
                     `User: "${apiData.backend_response.user_info}"` : 'Not Logged In';
+                const serviceName = apiData.backend_response && apiData.backend_response.service ?
+                    apiData.backend_response.service : 'Unknown Service';
 
-                showResult('api-result', `API Response (${authStatus}, ${userInfo}):\n${JSON.stringify(apiData, null, 2)}`);
+                showResult('api-result', `${serviceName} Response (${authStatus}, ${userInfo}):\n${JSON.stringify(apiData, null, 2)}`);
             } catch (error) {
                 showResult('api-result', `Error: ${error.message}`, true);
                 console.error(error);
             }
+        }
+
+        // Log Service button
+        document.getElementById('log-button').addEventListener('click', async () => {
+            accessService('/api/logs');
+        });
+
+        // User Service button
+        document.getElementById('user-button').addEventListener('click', async () => {
+            accessService('/api/users');
+        });
+
+        // Payment Service button
+        document.getElementById('payment-button').addEventListener('click', async () => {
+            accessService('/api/payments');
         });
 
         // Helper functions

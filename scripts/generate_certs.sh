@@ -16,7 +16,7 @@ fi
 
 echo "Using OpenSSL: $OPENSSL"
 
-CERTS_DIR="./certs"
+CERTS_DIR="/app/certs"
 CA_DIR="${CERTS_DIR}/hybrid-ca"
 SERVER_DIR="${CERTS_DIR}/hybrid-server"
 CLIENT_DIR="${CERTS_DIR}/hybrid-client"
@@ -73,17 +73,42 @@ echo "5️⃣ Sign Client CSR with Hybrid CA → Hybrid Client Cert"
     -out "${CLIENT_DIR}/client.crt" -days 365 \
     -extfile "${CLIENT_DIR}/client_ext.cnf" -extensions client_ext
 
-echo "6️⃣ Generate Backend TLS certificates (traditional RSA)"
+echo "6️⃣ Generate Backend/Log Service TLS certificates (traditional RSA)"
 "$OPENSSL" genrsa -out "${BACKEND_DIR}/server.key" 2048
 "$OPENSSL" req -new -x509 -key "${BACKEND_DIR}/server.key" -out "${BACKEND_DIR}/server.crt" \
-    -days 365 -subj "/CN=backend"
+    -days 365 -subj "/CN=log-service"
 
 # Set permissions
 chmod 644 "${BACKEND_DIR}/server.crt"
 chmod 600 "${BACKEND_DIR}/server.key"
 
+# Create directories for user and payment services
+USER_DIR="${CERTS_DIR}/user-service"
+PAYMENT_DIR="${CERTS_DIR}/payment-service"
+mkdir -p "${USER_DIR}" "${PAYMENT_DIR}"
+
+echo "7️⃣ Generate User Service TLS certificates (traditional RSA)"
+"$OPENSSL" genrsa -out "${USER_DIR}/server.key" 2048
+"$OPENSSL" req -new -x509 -key "${USER_DIR}/server.key" -out "${USER_DIR}/server.crt" \
+    -days 365 -subj "/CN=user-service"
+
+# Set permissions
+chmod 644 "${USER_DIR}/server.crt"
+chmod 600 "${USER_DIR}/server.key"
+
+echo "8️⃣ Generate Payment Service TLS certificates (traditional RSA)"
+"$OPENSSL" genrsa -out "${PAYMENT_DIR}/server.key" 2048
+"$OPENSSL" req -new -x509 -key "${PAYMENT_DIR}/server.key" -out "${PAYMENT_DIR}/server.crt" \
+    -days 365 -subj "/CN=payment-service"
+
+# Set permissions
+chmod 644 "${PAYMENT_DIR}/server.crt"
+chmod 600 "${PAYMENT_DIR}/server.key"
+
 echo "✅ All certificates have been generated:"
 echo "  CA    → ${CA_DIR}/ca.crt"
 echo "  Server→ ${SERVER_DIR}/server.crt, ${SERVER_DIR}/server.key"
 echo "  Client→ ${CLIENT_DIR}/client.crt, ${CLIENT_DIR}/client.key"
-echo "  Backend→ ${BACKEND_DIR}/server.crt, ${BACKEND_DIR}/server.key"
+echo "  Log Service→ ${BACKEND_DIR}/server.crt, ${BACKEND_DIR}/server.key"
+echo "  User Service→ ${USER_DIR}/server.crt, ${USER_DIR}/server.key"
+echo "  Payment Service→ ${PAYMENT_DIR}/server.crt, ${PAYMENT_DIR}/server.key"

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Service</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+        }
+        .service-info {
+            background-color: #f8e8e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Payment Service</h1>
+        <p>This is the Payment Service for the PasskeyMesh Gateway microservices demo.</p>
+        <p>The API endpoint is available at <code>/api</code>.</p>
+        
+        <div class="service-info">
+            <h2>Service Information</h2>
+            <p><strong>Service Name:</strong> Payment Service</p>
+            <p><strong>TLS Support:</strong> Traditional TLS only (Non-PQC)</p>
+            <p><strong>PQC Access:</strong> Via Quantum-Safe-Proxy Sidecar</p>
+            <p><strong>Authentication:</strong> JWT validation</p>
+            <p><strong>Features:</strong> Payment processing and transaction history</p>
+        </div>
+        
+        <div class="warning">
+            <h3>⚠️ Security Notice</h3>
+            <p>This service uses traditional TLS and requires a Quantum-Safe-Proxy sidecar for PQC protection.</p>
+            <p>In a real-world scenario, this represents a legacy service that cannot be directly upgraded to support PQC.</p>
+        </div>
+    </div>
+</body>
+</html>
