@@ -25,12 +25,19 @@ pub struct Claims {
     pub exp: usize,   // Expiration time
     pub iat: usize,   // Issued at
     pub iss: String,  // Issuer
-    pub aud: String,  // Audience
+    pub aud: Vec<String>,  // Multiple Audiences
 }
 
 // Issue JWT token for user
 pub fn issue_jwt(user_id: &str, username: &str) -> AppResult<String> {
     let now = Utc::now();
+
+    // Define multiple audiences for the JWT
+    let audiences = vec![
+        "backend-service".to_string(),
+        "user-service".to_string(),
+        "payment-service".to_string(),
+    ];
 
     encode(
         &Header::default(),
@@ -40,7 +47,7 @@ pub fn issue_jwt(user_id: &str, username: &str) -> AppResult<String> {
             exp: (now + Duration::hours(24)).timestamp() as usize,
             iat: now.timestamp() as usize,
             iss: JWT_ISSUER.to_string(),
-            aud: JWT_AUDIENCE.to_string(),
+            aud: audiences,
         },
         &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
     ).map_err(AppError::Jwt)
