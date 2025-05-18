@@ -1,0 +1,209 @@
+services:
+  passkeymesh-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - RUST_LOG=info,tower_http=debug,passkeymesh_gateway=trace
+      - QUANTUM_SAFE_PROXY_URL=https://quantum-safe-proxy:8443
+      - USER_SERVICE_URL=https://user-quantum-safe-proxy:8443
+      - PAYMENT_SERVICE_URL=https://payment-quantum-safe-proxy:8443
+      - RUST_BACKTRACE=1
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key-for-production}
+      - JWT_ISSUER=passkeymesh-gateway
+      - JWT_AUDIENCE=backend-service
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      # mTLS certificate configuration
+      - CLIENT_CERT_PATH=/app/certs/hybrid-client/client.crt
+      - CLIENT_KEY_PATH=/app/certs/hybrid-client/client.key
+      - CA_CERT_PATH=/app/certs/hybrid-ca/ca.crt
+    volumes:
+      - ./certs:/app/certs
+    networks:
+      - proxy-network
+    restart: unless-stopped
+    depends_on:
+      - quantum-safe-proxy
+      - user-quantum-safe-proxy
+      - payment-quantum-safe-proxy
+
+  # Log Service Proxy (原 quantum-safe-proxy)
+  quantum-safe-proxy:
+    image: quantum-safe-proxy:openssl35
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./certs:/app/certs
+      - ./config.json:/app/config.json
+      - ./scripts:/app/scripts
+    environment:
+      - RUST_LOG=quantum_safe_proxy=debug
+      - QUANTUM_SAFE_PROXY_LOG_LEVEL=debug
+      - LD_LIBRARY_PATH=/opt/openssl35/lib64:/opt/openssl35/lib
+      - OPENSSL_DIR=/opt/openssl35
+      - OPENSSL_LIB_DIR=/opt/openssl35/lib64
+      - OPENSSL_INCLUDE_DIR=/opt/openssl35/include
+      - RUST_BACKTRACE=1
+      - AUTO_GENERATE_CERTS=true
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["quantum-safe-proxy
+              --listen 0.0.0.0:8443
+              --target log-service:6000
+              --strategy dynamic
+              --hybrid-cert /app/certs/hybrid-server/server.crt
+              --hybrid-key /app/certs/hybrid-server/server.key
+              --traditional-cert /app/certs/backend/server.crt
+              --traditional-key /app/certs/backend/server.key
+              --client-ca-cert /app/certs/hybrid-ca/ca.crt
+              --log-level debug
+              --client-cert-mode optional
+              --buffer-size 8192
+              --connection-timeout 60
+              --openssl-dir /opt/openssl35"]
+    networks:
+      - proxy-network
+    restart: unless-stopped
+    depends_on:
+      - log-service
+
+  # Log Service (原 backend)
+  log-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.openresty
+    container_name: log-service
+    ports:
+      - "6000:6000"
+      - "6445:6443"
+    volumes:
+      - ./certs/backend:/etc/nginx/ssl
+      - ./docker/nginx/log-service.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx/html/log-service:/usr/share/nginx/html
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key-for-production}
+      - JWT_ISSUER=passkeymesh-gateway
+      - JWT_AUDIENCE=backend-service
+      - SERVICE_NAME=log-service
+    networks:
+      - proxy-network
+    restart: unless-stopped
+
+  # User Service
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.openresty
+    container_name: user-service
+    ports:
+      - "7000:7000"
+      - "7443:7443"
+    volumes:
+      - ./certs/user-service:/etc/nginx/ssl
+      - ./docker/nginx/user-service.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx/html/user-service:/usr/share/nginx/html
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key-for-production}
+      - JWT_ISSUER=passkeymesh-gateway
+      - JWT_AUDIENCE=user-service
+      - SERVICE_NAME=user-service
+    networks:
+      - proxy-network
+    restart: unless-stopped
+
+  # User Service Proxy
+  user-quantum-safe-proxy:
+    image: quantum-safe-proxy:openssl35
+    ports:
+      - "8444:8443"
+    volumes:
+      - ./certs:/app/certs
+      - ./config.json:/app/config.json
+    environment:
+      - RUST_LOG=quantum_safe_proxy=debug
+      - LD_LIBRARY_PATH=/opt/openssl35/lib64:/opt/openssl35/lib
+      - OPENSSL_DIR=/opt/openssl35
+      - OPENSSL_LIB_DIR=/opt/openssl35/lib64
+      - OPENSSL_INCLUDE_DIR=/opt/openssl35/include
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["quantum-safe-proxy
+              --listen 0.0.0.0:8443
+              --target user-service:7000
+              --strategy dynamic
+              --hybrid-cert /app/certs/hybrid-server/server.crt
+              --hybrid-key /app/certs/hybrid-server/server.key
+              --traditional-cert /app/certs/user-service/server.crt
+              --traditional-key /app/certs/user-service/server.key
+              --client-ca-cert /app/certs/hybrid-ca/ca.crt
+              --log-level debug
+              --client-cert-mode optional
+              --buffer-size 8192
+              --connection-timeout 60
+              --openssl-dir /opt/openssl35"]
+    networks:
+      - proxy-network
+    restart: unless-stopped
+    depends_on:
+      - user-service
+
+  # Payment Service (僅支援傳統 TLS)
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.openresty
+    container_name: payment-service
+    ports:
+      - "8000:8000"
+      - "9443:8443"
+    volumes:
+      - ./certs/payment-service:/etc/nginx/ssl
+      - ./docker/nginx/payment-service.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx/html/payment-service:/usr/share/nginx/html
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-key-for-production}
+      - JWT_ISSUER=passkeymesh-gateway
+      - JWT_AUDIENCE=payment-service
+      - SERVICE_NAME=payment-service
+    networks:
+      - proxy-network
+    restart: unless-stopped
+
+  # Payment Service Proxy (Sidecar)
+  payment-quantum-safe-proxy:
+    image: quantum-safe-proxy:openssl35
+    ports:
+      - "8445:8443"
+    volumes:
+      - ./certs:/app/certs
+      - ./config.json:/app/config.json
+    environment:
+      - RUST_LOG=quantum_safe_proxy=debug
+      - LD_LIBRARY_PATH=/opt/openssl35/lib64:/opt/openssl35/lib
+      - OPENSSL_DIR=/opt/openssl35
+      - OPENSSL_LIB_DIR=/opt/openssl35/lib64
+      - OPENSSL_INCLUDE_DIR=/opt/openssl35/include
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["quantum-safe-proxy
+              --listen 0.0.0.0:8443
+              --target payment-service:8000
+              --strategy dynamic
+              --hybrid-cert /app/certs/hybrid-server/server.crt
+              --hybrid-key /app/certs/hybrid-server/server.key
+              --traditional-cert /app/certs/payment-service/server.crt
+              --traditional-key /app/certs/payment-service/server.key
+              --client-ca-cert /app/certs/hybrid-ca/ca.crt
+              --log-level debug
+              --client-cert-mode optional
+              --buffer-size 8192
+              --connection-timeout 60
+              --openssl-dir /opt/openssl35"]
+    networks:
+      - proxy-network
+    restart: unless-stopped
+    depends_on:
+      - payment-service
+
+networks:
+  proxy-network:
+    driver: bridge
