@@ -44,6 +44,7 @@ impl ServiceType {
     }
 
     // Get JWT audience for service
+    #[allow(dead_code)]
     pub fn audience(&self) -> &'static str {
         match self {
             ServiceType::Log => "backend-service",

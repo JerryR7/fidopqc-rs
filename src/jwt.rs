@@ -13,10 +13,6 @@ static JWT_ISSUER: Lazy<String> = Lazy::new(|| {
     std::env::var("JWT_ISSUER").unwrap_or_else(|_| "passkeymesh-gateway".to_string())
 });
 
-static JWT_AUDIENCE: Lazy<String> = Lazy::new(|| {
-    std::env::var("JWT_AUDIENCE").unwrap_or_else(|_| "backend-service".to_string())
-});
-
 // JWT claims structure
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {

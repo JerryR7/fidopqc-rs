@@ -36,28 +36,22 @@ url = "2.5"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
 # Error handling
 thiserror = "1.0"
-
 # Time handling
 chrono = "0.4"
 
 # UUID generation
 uuid = { version = "1.3", features = ["v4", "serde"] }
-
 # Singleton pattern
 once_cell = "1.17"
-
 # OpenSSL related (for PQC TLS)
 openssl = { version = "0.10" }
 openssl-sys = { version = "0.9" }
+# rustls = { version = "0.23.22", features = ["prefer-post-quantum"] }
 
 # Environment variables
 dotenv = "0.15.0"
-
-# Temporary file handling
-tempfile = "3.8.0"
 
 [profile.release]
 # Optimization level
