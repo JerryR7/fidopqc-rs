@@ -154,7 +154,7 @@ services:
       dockerfile: Dockerfile.openresty
     container_name: payment-service
     ports:
-      - "8000:8000"
+      - "8123:8123"
       - "9443:8443"
     volumes:
       - ./certs/payment-service:/etc/nginx/ssl
@@ -186,7 +186,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command: ["quantum-safe-proxy
               --listen 0.0.0.0:8443
-              --target payment-service:8000
+              --target payment-service:8123
               --strategy dynamic
               --hybrid-cert /app/certs/hybrid-server/server.crt
               --hybrid-key /app/certs/hybrid-server/server.key
